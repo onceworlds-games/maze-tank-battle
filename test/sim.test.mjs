@@ -61,3 +61,43 @@ test('goals of 5, 10 and 15 all end (bots, one seed each)', () => {
     assert.ok(Math.max(...Object.values(g.scores)) >= goal);
   }
 });
+
+test('a person who mashes everything (stick and keys, every power-up, fire held) breaks nothing', () => {
+  for (const seed of [11, 12, 13, 14, 15, 16]) {
+    let n = 0;
+    const rngState = { s: seed * 7919 };
+    const rnd = () => {
+      rngState.s = (rngState.s * 1664525 + 1013904223) >>> 0;
+      return rngState.s / 4294967296;
+    };
+    const { g, stats } = playMatch(seed, {
+      goal: 3,
+      humans: ['ann'],
+      drive: (round) => {
+        const k = round.byId.get('ann');
+        if (!k || !k.alive) return;
+        n++;
+        const inp = k.inp;
+        if (n % 20 === 0) {
+          if (rnd() < 0.5) {
+            inp.aim = rnd() * 6.28 - 3.14;
+            inp.mag = rnd();
+            inp.turn = 0;
+            inp.thr = 0;
+          } else {
+            inp.aim = null;
+            inp.mag = 0;
+            inp.turn = Math.floor(rnd() * 3) - 1;
+            inp.thr = Math.floor(rnd() * 3) - 1;
+          }
+        }
+        inp.fire = rnd() < 0.5;
+        inp.edge = rnd() < 0.12;
+        if (n % 150 === 0 && !k.weapon) k.weapon = { k: 'LSGMH'[Math.floor(rnd() * 5)], ammo: 20 };
+      },
+    });
+    assert.deepEqual(stats.bad, [], `seed ${seed}`);
+    assert.equal(stats.stuckShots, 0);
+    assert.equal(g.phase, 'final');
+  }
+});

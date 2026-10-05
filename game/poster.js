@@ -4,7 +4,7 @@
 
 import { drawTankSolo, drawWorld } from './draw.js';
 import { createFx } from './fx.js';
-import { castRects, reflect, segObb } from './geom.js';
+import { castRects, insideRects, reflect, segObb } from './geom.js';
 import { INK, TAU, circle, clamp, rgba, shade, text } from './gfx.js';
 import { makeMaze } from './maze.js';
 import { mulberry32 } from './rng.js';
@@ -232,6 +232,7 @@ function findRicochet() {
         const a = (deg * Math.PI) / 180;
         const mx = sx + Math.cos(a) * TANK.muzzle;
         const my = sy + Math.sin(a) * TANK.muzzle;
+        if (insideRects(maze.rc, maze.nrc, mx, my, SHOT.r + 0.004)) continue;
         const pts = pathOf(maze, mx, my, a, 1, 9);
         if (pts.length < 6) continue;
         // the second segment must run into the tank (a tank facing across the corridor)

@@ -157,7 +157,7 @@ export function createNet(room, env) {
   function onFire(d, from) {
     if (!str(d.rid, 120) || !str(d.id)) return;
     if (d.rid === 'lobby') {
-      if (room.match.phase !== 'lobby' || d.id !== from.id || !shotAllowed(d.id)) return;
+      if (room.match.phase === 'playing' || d.id !== from.id || !shotAllowed(d.id)) return;
       env.fire(d, 'lobby');
       return;
     }

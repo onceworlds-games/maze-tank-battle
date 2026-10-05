@@ -122,11 +122,17 @@ export class Round {
     return n;
   }
 
-  /** Is the point a shot would start from free of walls? */
-  muzzleFree(k) {
+  /** Is the point a shot (of radius r) would start from free of walls? */
+  muzzleFree(k, r = SHOT.r) {
     const x = k.x + Math.cos(k.a) * TANK.muzzle;
     const y = k.y + Math.sin(k.a) * TANK.muzzle;
-    return !insideRects(this.rc, this.nrc, x, y, SHOT.r + 0.004);
+    return !insideRects(this.rc, this.nrc, x, y, r + 0.004);
+  }
+
+  /** May something of radius r start at (x, y)? Inside the maze and not inside a wall (a message can say anything). */
+  spawnOk(x, y, r) {
+    const m = this.maze;
+    return x > 0 && x < m.cols && y > 0 && y < m.rows && !insideRects(this.rc, this.nrc, x, y, r);
   }
 
   // ------------------------------------------------------------------ one step
@@ -347,7 +353,7 @@ export class Round {
         x = k.x;
         y = k.y;
       }
-    } else if (!this.muzzleFree(k)) return this.fizzle(k);
+    } else if (!this.muzzleFree(k, kind === 'H' ? WEAPON.H.r : kind === 'S' ? WEAPON.S.r : 0.02)) return this.fizzle(k);
     const spec = this.makeSpec(k, kind, x, y, k.a);
     k.weapon = null;
     k.buf = 0;
@@ -357,7 +363,7 @@ export class Round {
   }
 
   fireGatling(k, w) {
-    if (!this.muzzleFree(k)) return this.fizzle(k);
+    if (!this.muzzleFree(k, WEAPON.G.r)) return this.fizzle(k);
     const n = k.seq + 1;
     const wob = Math.sin(n * 12.9898) * 0.035; // a little spray, the same every time
     const spec = this.makeSpec(k, 'G', k.x + Math.cos(k.a) * TANK.muzzle, k.y + Math.sin(k.a) * TANK.muzzle, k.a + wob);
@@ -380,6 +386,8 @@ export class Round {
     this.fired.add(key);
     if (this.fired.size > 4000) this.fired.clear();
     const kind = spec.k;
+    const r = kind === 'S' ? WEAPON.S.r : kind === 'G' ? WEAPON.G.r : kind === 'H' ? WEAPON.H.r : kind === 'N' ? SHOT.r : kind === 'L' ? 0.02 : 0;
+    if (!this.spawnOk(spec.x, spec.y, r)) return;
     if (kind === 'L') return this.laser(spec, key);
     if (kind === 'M') {
       const armed = elapsed >= WEAPON.M.arm;
