@@ -57,7 +57,7 @@ test('every drawing routine runs clean', async () => {
     fx.smoke(5, 3, 6);
     for (let i = 0; i < 40; i++) fx.mark(i * 0.1, 1, i * 0.1 + 0.1, 1.05);
     fx.update(0.1);
-    const W = { round, fx, accent: '#ff7a1a', time: 12.3, meId: 'me', tags: true, youUntil: 14, guide: true, keys: true, crateSeen: new Map([[1, 12.2], [2, 5]]) };
+    const W = { round, fx, accent: '#ff7a1a', time: 12.3, meId: 'me', tags: true, youUntil: 14, guide: true, keys: { move: true, fire: true }, crateSeen: new Map([[1, 12.2], [2, 5]]) };
     ctx.texts.length = 0;
     for (let f = 0; f < 3; f++) drawWorld(ctx, Sc, W);
     assert.equal(ctx.depth, 0);

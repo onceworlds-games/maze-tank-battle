@@ -125,7 +125,7 @@ function run(ow, room, tickable, offline) {
     hintFired: false,
     tmp: { x: 0, y: 0, a: 0, f: 0 },
   };
-  const W = { round: null, fx, accent: accentFor(LOBBY_SEED), time: 0, meId, tags: false, youUntil: 0, guide: false, keys: false, crateSeen: S.crateSeen };
+  const W = { round: null, fx, accent: accentFor(LOBBY_SEED), time: 0, meId, tags: false, youUntil: 0, guide: false, keys: null, crateSeen: S.crateSeen };
 
   // ---------------------------------------------------------------- saves and badges
   Promise.resolve()
@@ -350,6 +350,7 @@ function run(ow, room, tickable, offline) {
     S.crateSeen.clear();
     S.wasHost = false;
     S.phaseKey = '';
+    S.hintX = -1;
     fx.clear();
     input.dropEdge();
     for (const k of round.tanks) {
@@ -625,6 +626,7 @@ function run(ow, room, tickable, offline) {
     S.scene = want;
     S.phaseKey = '';
     input.dropEdge();
+    S.hintX = -1;
     if (want === 'lobby') {
       S.rid = '';
       S.myTank = null;
@@ -787,7 +789,7 @@ function run(ow, room, tickable, offline) {
     }
     for (const s of round.shots) if (s.k === 'H' && !s.dead && fx.rand() < 0.6) fx.smoke(s.x - s.dx * 0.07, s.y - s.dy * 0.07, 1, 0.15, '#c9ccd4', 0.032);
     const me = S.myTank;
-    if (S.scene === 'lobby' && me) {
+    if (S.scene !== 'title' && me && me.alive) {
       // the keys are shown until you have driven somewhere and fired
       if (S.hintX < 0) {
         S.hintX = me.x;
@@ -1003,7 +1005,8 @@ function run(ow, room, tickable, offline) {
         W.tags = S.scene === 'lobby' || (S.scene === 'match' && g && g.phase === 'intro') ? true : S.scene === 'match' && g && g.phase !== 'final' ? 'mini' : false;
         W.youUntil = S.youUntil;
         W.guide = S.scene === 'lobby' && room.match.phase === 'lobby';
-        W.keys = W.guide && !ow.controls.touch && !(S.hintMoved && S.hintFired);
+        const playing = S.scene === 'match' && g && S.iAmIn && (g.phase === 'intro' || g.phase === 'play');
+        W.keys = (W.guide || playing) && !ow.controls.touch && !(S.hintMoved && S.hintFired) ? { move: !S.hintMoved, fire: !S.hintFired } : null;
         drawWorld(ctx, Sc, W);
         drawScreens(g);
       }

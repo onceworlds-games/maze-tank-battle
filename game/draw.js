@@ -2,7 +2,7 @@
 // tracks, shots with trails, laser beams, particles. World units are cells; Sc says where they land on the screen:
 //   Sc = { w, h, pr, scale (px per cell), ox, oy (where world 0,0 is, px), shx, shy (shake, px), time (s), q, reduced }
 //   W  = { round, fx, accent, time, meId, tags (false, true: name tags, 'mini': small ones for play), youUntil (s: "you" arrow shown until), guide (lobby aim line),
-//          keys (lobby: show the keys), crateSeen: Map(crate n -> time first seen) }
+//          keys (null, or { move, fire }: which keys to show beside your tank), crateSeen: Map(crate n -> time first seen) }
 
 import { drawHead } from './avatars.js';
 import { COLORS } from './rules.js';
@@ -676,8 +676,8 @@ function drawTag(ctx, k, Sc, mini) {
   ctx.globalAlpha = 1;
 }
 
-/** Keys, once: W A S D drive, Space fires, shown beside your tank in the lobby until you have done both. */
-function drawKeys(ctx, k, Sc) {
+/** Keys, once: W A S D drive, Space fires, shown beside your tank until you have done each (keys: { move, fire }). */
+function drawKeys(ctx, k, Sc, keys) {
   const u = Sc.u;
   const cap = 21 * u;
   const gap = 3 * u;
@@ -693,12 +693,14 @@ function drawKeys(ctx, k, Sc) {
     ctx.stroke();
     text(ctx, label, x, y + u * 0.5, size, { lw: 0, weight: 700 });
   };
-  const x0 = cx - cap * 1.9;
-  keyAt('W', x0, cy - cap - gap, cap, 15 * u);
-  keyAt('A', x0 - cap - gap, cy, cap, 15 * u);
-  keyAt('S', x0, cy, cap, 15 * u);
-  keyAt('D', x0 + cap + gap, cy, cap, 15 * u);
-  keyAt('SPACE', cx + cap * 1.9, cy, cap * 3.1, 14 * u);
+  const x0 = keys.fire ? cx - cap * 1.9 : cx;
+  if (keys.move) {
+    keyAt('W', x0, cy - cap - gap, cap, 15 * u);
+    keyAt('A', x0 - cap - gap, cy, cap, 15 * u);
+    keyAt('S', x0, cy, cap, 15 * u);
+    keyAt('D', x0 + cap + gap, cy, cap, 15 * u);
+  }
+  if (keys.fire) keyAt('SPACE', keys.move ? cx + cap * 1.9 : cx, cy, cap * 3.1, 14 * u);
 }
 
 /** The arrow over your own tank when a round starts. */
@@ -855,7 +857,7 @@ export function drawWorld(ctx, Sc, W) {
   drawParticles(ctx, fx);
   if (W.tags) for (const k of tanks) if (k.alive && !k.hidden) drawTag(ctx, k, Sc, W.tags === 'mini');
   for (const k of tanks) if (k.me && k.alive && !k.hidden) drawYou(ctx, k, Sc, W);
-  if (W.keys) for (const k of tanks) if (k.me && k.alive && !k.hidden) drawKeys(ctx, k, Sc);
+  if (W.keys) for (const k of tanks) if (k.me && k.alive && !k.hidden) drawKeys(ctx, k, Sc, W.keys);
   drawPopups(ctx, fx, Sc);
 }
 
