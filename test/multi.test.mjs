@@ -293,3 +293,44 @@ test('pages agree where everyone is; a crate is taken and arms its taker on ever
   assert.equal(ivy.weapon, null);
   assertClean([A, B], 'crate and laser');
 });
+
+test('the host leaves in the middle of a round: the next one carries the match to its end', async () => {
+  const hub = new Hub();
+  const A = await boot(hub, 'kim', 'k');
+  const B = await boot(hub, 'lou', 'l');
+  const C = await boot(hub, 'max', 'm');
+  for (const p of [A, B, C]) {
+    p.page.install();
+    p.page.key('Space');
+  }
+  for (let i = 0; i < 120; i++) step(hub);
+  hub.start();
+  let gone = false;
+  let wasPlaying = false;
+  let frameN = 0;
+  let newHost = '';
+  for (; frameN < 60 * 1200; frameN++) {
+    const g = B.room.state.g;
+    const playing = hub.match.phase === 'playing' && g && g.mid === hub.match.id;
+    if (playing) wasPlaying = true;
+    if (playing && g.phase === 'play' && g.round === 2 && !gone && B.room.matchNow() - g.t0 > 1500) {
+      gone = true;
+      A.page.dead = true;
+      hub.remove('kim');
+    }
+    if (playing) for (const p of [B, C]) play(p, frameN);
+    step(hub);
+    if (gone && !newHost && B.room.state.g && B.room.state.g.by !== 'kim') newHost = B.room.state.g.by;
+    if (wasPlaying && hub.match.phase === 'lobby') break;
+  }
+  assert.deepEqual(errors.map(String), []);
+  assert.ok(gone);
+  assert.ok(newHost === 'lou' || newHost === 'max', `a new host wrote the book (${newHost})`);
+  assert.equal(hub.match.phase, 'lobby', `the match ended after ${frameN} frames`);
+  const g = B.room.state.g;
+  assert.ok(g.round >= 3, 'rounds went on');
+  assert.ok(g.gone.includes('kim'), 'kim is out for good');
+  assert.ok(g.scores.kim >= 0);
+  assert.deepEqual(B.page.ctx.bad, []);
+  assert.deepEqual(C.page.ctx.bad, []);
+});
