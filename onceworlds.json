@@ -1,0 +1,21 @@
+{
+  "slug": "maze-tank-battle",
+  "name": "Maze Tank Battle",
+  "description": "Bouncing shots in a tight maze. One hit and you're out.",
+  "dir": "game",
+  "genre": "Shooter",
+  "icon": "store/icon.png",
+  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png"],
+  "badges": [
+    { "id": "first-win", "name": "First Win", "description": "Win a match.", "icon": "store/badge-first-win.png" },
+    { "id": "bank-shot", "name": "Bank Shot", "description": "Hit a tank with a shot that bounced 3 or more times.", "icon": "store/badge-bank-shot.png" },
+    { "id": "oops", "name": "Oops", "description": "Get taken out by your own shot.", "icon": "store/badge-oops.png" },
+    { "id": "ace", "name": "Ace", "description": "Win 5 rounds in a row.", "icon": "store/badge-ace.png" }
+  ],
+  "controls": [
+    { "keys": ["W", "A", "S", "D"], "action": "Drive" },
+    { "keys": ["Arrows"], "action": "Drive" },
+    { "keys": ["Space"], "action": "Fire" },
+    { "keys": ["Click"], "action": "Fire" }
+  ]
+}
