@@ -5,7 +5,7 @@
 import { drawTankSolo, drawWorld } from './draw.js';
 import { createFx } from './fx.js';
 import { castRects, insideRects, reflect, segObb } from './geom.js';
-import { INK, TAU, circle, clamp, rgba, shade, text } from './gfx.js';
+import { INK, TAU, circle, clamp, font, rgba, shade, text } from './gfx.js';
 import { makeMaze } from './maze.js';
 import { mulberry32 } from './rng.js';
 import { Round } from './round.js';
@@ -207,7 +207,11 @@ function cover(ctx) {
   g.addColorStop(1, 'rgba(7,9,15,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h * 0.5);
-  skewText(ctx, 'MAZE TANK BATTLE', w / 2, h * 0.17, 168, { weight: 700, lw: 14, stroke: 'rgba(5,7,12,0.95)', shadow: 6 });
+  // as big as fits the width
+  ctx.font = font(168, 700);
+  const wide = ctx.measureText('MAZE TANK BATTLE').width;
+  const size = wide > w * 0.9 ? (168 * w * 0.9) / wide : 168;
+  skewText(ctx, 'MAZE TANK BATTLE', w / 2, h * 0.17, size, { weight: 700, lw: size * 0.085, stroke: 'rgba(5,7,12,0.95)', shadow: size * 0.036 });
   ctx.fillStyle = '#ff7a1a';
   ctx.fillRect(w * 0.31, h * 0.275, w * 0.38, 9);
   vignette(ctx, w, h, 0.35);
