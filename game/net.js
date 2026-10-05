@@ -23,8 +23,7 @@ const str = (v, max = 80) => typeof v === 'string' && v.length > 0 && v.length <
  *   fire(msg, rid)   a checked fire message to put in the world ('lobby' rid for the lobby's practice shots),
  *   dead(msg)        a checked death to apply,
  *   boom(key),
- *   positions()      [{ x, y }] of the tanks still in the round (the host keeps crates off them),
- *   away(id)         is this person's page away (the host decides about their tank)?
+ *   positions()      [{ x, y }] of the tanks still in the round (the host keeps crates off them)
  * }
  */
 export function createNet(room, env) {
@@ -170,18 +169,14 @@ export function createNet(room, env) {
     env.fire(d, g.rid);
   }
 
-  /** Who may say that tank `id` is destroyed: its own page; for a bot, an away player or a leaver, the host. */
-  function mayReport(e, id, from) {
-    if (from.id === id) return true;
-    if (from.id !== room.host) return false;
-    return Boolean(e.bot) || !room.players.has(id) || env.away(id);
-  }
+  /** Who may say that tank `id` is destroyed: its own page, or the host (which decides for bots, for people who are away or whose page has stopped, and for leavers). */
+  const mayReport = (id, from) => from.id === id || from.id === room.host;
 
   function onDead(d, from) {
     const g = G();
     if (!g || d.rid !== g.rid || (g.phase !== 'play' && g.phase !== 'end') || !str(d.id)) return;
     const e = g.roster.find((x) => x.id === d.id);
-    if (!e || !mayReport(e, d.id, from)) return;
+    if (!e || !mayReport(d.id, from)) return;
     const info = { by: typeof d.by === 'string' ? d.by : '', s: typeof d.s === 'string' && d.s.length < 60 ? d.s : '', b: clamp(Math.round(num(d.b)), 0, 99) };
     env.dead({ id: d.id, ...info });
     if (hosting()) {

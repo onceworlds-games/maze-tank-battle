@@ -82,7 +82,7 @@ export function createFx() {
     },
 
     /** Sparks fanned about direction `a`. */
-    sparks(x, y, a, spread, n, speed, cols = ['#ffe9a0', '#ffffff', '#ffb02e']) {
+    sparks(x, y, a, spread, n, speed, cols = ['#ff9d2e', '#ffcf40', '#ff6a1a']) {
       const k = this.count(n);
       for (let i = 0; i < k; i++) {
         const d = a + (this.rand() - 0.5) * 2 * spread;
@@ -93,7 +93,7 @@ export function createFx() {
 
     /** The flash and kick at the end of a barrel. */
     muzzle(x, y, a, power = 1) {
-      if (!this.reduced) this.spawn(FLASH, x + Math.cos(a) * 0.04, y + Math.sin(a) * 0.04, 0, 0, 0.07, 0.05 * power, 0.14 * power, '#fff3c4');
+      if (!this.reduced) this.spawn(FLASH, x + Math.cos(a) * 0.04, y + Math.sin(a) * 0.04, 0, 0, 0.07, 0.05 * power, 0.14 * power, '#fff6cf');
       this.sparks(x, y, a, 0.5, 4 * power, 3.4);
       this.smoke(x, y, 2, 0.4, '#d8dbe0');
     },
@@ -110,7 +110,7 @@ export function createFx() {
     /** A shot meeting a wall: a spray along the face and a tiny ring. */
     bounce(x, y, nx, ny) {
       const a = Math.atan2(ny, nx);
-      this.sparks(x + nx * 0.02, y + ny * 0.02, a, 0.9, 3, 1.8, ['#ffffff', '#cfd6e6', '#ffd37a']);
+      this.sparks(x + nx * 0.02, y + ny * 0.02, a, 0.9, 3, 1.8, ['#ff9d2e', '#ffc83a', '#ffffff']);
       this.ring(x + nx * 0.02, y + ny * 0.02, 0.02, 0.13, 0.16, '#ffffff', 0.012);
     },
 

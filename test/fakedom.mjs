@@ -162,6 +162,7 @@ export function makeCtx(label = 'ctx') {
           if (p === 'arc' && args[2] < 0) throw new Error(`${label}.arc with a negative radius: ${args.join(', ')}`);
           if (p === 'ellipse' && (args[2] < 0 || args[3] < 0)) throw new Error(`${label}.ellipse with a negative radius: ${args.join(', ')}`);
           if (p === 'arcTo' && args[4] < 0) throw new Error(`${label}.arcTo with a negative radius: ${args.join(', ')}`);
+          if (p === 'createRadialGradient' && (args[2] < 0 || args[5] < 0)) throw new Error(`${label}.createRadialGradient with a negative radius: ${args.join(', ')}`);
         };
       },
       set(_, p, v) {

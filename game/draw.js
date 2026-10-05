@@ -2,7 +2,7 @@
 // tracks, shots with trails, laser beams, particles. World units are cells; Sc says where they land on the screen:
 //   Sc = { w, h, pr, scale (px per cell), ox, oy (where world 0,0 is, px), shx, shy (shake, px), time (s), q, reduced }
 //   W  = { round, fx, accent, time, meId, tags (draw name tags), youUntil (s: "you" arrow shown until), guide (lobby aim line),
-//          crateSeen: Map(crate n -> time first seen) }
+//          keys (lobby: show the keys), crateSeen: Map(crate n -> time first seen) }
 
 import { drawHead } from './avatars.js';
 import { COLORS } from './rules.js';
@@ -14,7 +14,7 @@ import { mulberry32 } from './rng.js';
 
 export const WCOL = { L: '#19d3f0', S: '#ff8a1f', G: '#ffd60a', M: '#ff4b4b', H: '#c06bff' };
 const LAYER_PAD = 0.4;
-const FLOOR = '#cdd1d7';
+const FLOOR = '#c6cad1';
 const V = { ox: 0, oy: 0, s: 1 };
 const HIT = { t: 0, nx: 0, ny: 0 };
 const RF = [0, 0];
@@ -660,6 +660,31 @@ function drawTag(ctx, k, Sc) {
   }
 }
 
+/** Keys, once: W A S D drive, Space fires, shown beside your tank in the lobby until you have done both. */
+function drawKeys(ctx, k, Sc) {
+  const u = Sc.u;
+  const cap = 21 * u;
+  const gap = 3 * u;
+  const cx = V.ox + k.x * V.s;
+  let cy = V.oy + (k.y + 0.62) * V.s + cap * 1.1;
+  if (cy + cap * 1.6 > Sc.h - 90) cy = V.oy + (k.y - 0.62) * V.s - cap * 2.6;
+  const keyAt = (label, x, y, w, size) => {
+    ctx.fillStyle = 'rgba(12,14,21,0.86)';
+    rr(ctx, x - w / 2, y - cap / 2, w, cap, 4 * u);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = Math.max(1.4, 1.5 * u);
+    ctx.stroke();
+    text(ctx, label, x, y + u * 0.5, size, { lw: 0, weight: 700 });
+  };
+  const x0 = cx - cap * 1.9;
+  keyAt('W', x0, cy - cap - gap, cap, 15 * u);
+  keyAt('A', x0 - cap - gap, cy, cap, 15 * u);
+  keyAt('S', x0, cy, cap, 15 * u);
+  keyAt('D', x0 + cap + gap, cy, cap, 15 * u);
+  keyAt('SPACE', cx + cap * 1.9, cy, cap * 3.1, 14 * u);
+}
+
 /** The arrow over your own tank when a round starts. */
 function drawYou(ctx, k, Sc, W) {
   const t = W.youUntil - W.time;
@@ -728,18 +753,32 @@ function drawParticles(ctx, fx) {
     }
   }
   ctx.globalAlpha = 1;
-  // glows add up
-  ctx.globalCompositeOperation = 'lighter';
+  // fire and flash on top (plain painting, not additive: the floor is light and glows would only wash out)
   for (const p of fx.parts) {
     if (!p.on || (p.k !== FLASH && p.k !== FIRE)) continue;
     const u = p.age / p.life;
-    ctx.globalAlpha = p.k === FLASH ? Math.pow(1 - u, 1.5) : 0.75 * (1 - u);
-    ctx.fillStyle = p.col;
-    circle(ctx, V.ox + p.x * V.s, V.oy + p.y * V.s, lerp(p.r, p.r1, Math.sqrt(u)) * V.s);
-    ctx.fill();
+    const x = V.ox + p.x * V.s;
+    const y = V.oy + p.y * V.s;
+    const r = lerp(p.r, p.r1, Math.sqrt(u)) * V.s;
+    if (p.k === FLASH) {
+      ctx.globalAlpha = Math.pow(1 - u, 1.4);
+      ctx.fillStyle = '#fff6cf';
+      circle(ctx, x, y, r);
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.5, r * 0.18);
+      ctx.strokeStyle = '#ffb02e';
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = 0.9 * (1 - u);
+      ctx.fillStyle = u < 0.5 ? '#ff6a1a' : '#8a2a10';
+      circle(ctx, x, y, r);
+      ctx.fill();
+      ctx.fillStyle = u < 0.5 ? '#ffd25a' : '#ff6a1a';
+      circle(ctx, x, y, r * 0.55);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
   for (const r of fx.rings) {
     if (!r.on) continue;
     const u = r.age / r.life;
@@ -797,6 +836,7 @@ export function drawWorld(ctx, Sc, W) {
   drawParticles(ctx, fx);
   if (W.tags) for (const k of tanks) if (k.alive && !k.hidden) drawTag(ctx, k, Sc);
   for (const k of tanks) if (k.me && k.alive && !k.hidden) drawYou(ctx, k, Sc, W);
+  if (W.keys) for (const k of tanks) if (k.me && k.alive && !k.hidden) drawKeys(ctx, k, Sc);
   // practice targets
   for (const g of round.targets) drawTarget(ctx, g, W);
   drawPopups(ctx, fx, Sc);

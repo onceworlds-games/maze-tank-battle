@@ -49,8 +49,8 @@ async function boot() {
     offline = true;
   }
   try {
-    document.fonts?.load('700 40px Teko');
-    document.fonts?.load('600 20px Teko');
+    Promise.resolve(document.fonts?.load('700 40px Teko')).catch(() => {});
+    Promise.resolve(document.fonts?.load('600 20px Teko')).catch(() => {});
   } catch {
     // fonts are only for looks
   }
@@ -119,10 +119,13 @@ function run(ow, room, tickable, offline) {
     camX: COLS / 2,
     camY: ROWS / 2,
     puffT: 0,
+    hintX: -1,
+    hintY: -1,
+    hintMoved: false,
+    hintFired: false,
     tmp: { x: 0, y: 0, a: 0, f: 0 },
-    prevMatchPhase: room.match.phase,
   };
-  const W = { round: null, fx, accent: accentFor(LOBBY_SEED), time: 0, meId, tags: false, youUntil: 0, guide: false, crateSeen: S.crateSeen };
+  const W = { round: null, fx, accent: accentFor(LOBBY_SEED), time: 0, meId, tags: false, youUntil: 0, guide: false, keys: false, crateSeen: S.crateSeen };
 
   // ---------------------------------------------------------------- saves and badges
   Promise.resolve()
@@ -153,7 +156,6 @@ function run(ow, room, tickable, offline) {
       if (S.round && S.round !== S.lobby && S.round !== S.demo) S.round.remoteBoom(key);
     },
     positions: () => (S.round && S.scene === 'match' ? S.round.aliveTanks().map((k) => ({ x: k.x, y: k.y })) : []),
-    away: (id) => room.players.get(id)?.connected === false,
   });
 
   const rosterEntry = (g, id) => (g ? g.roster.find((e) => e.id === id) : null);
@@ -162,10 +164,6 @@ function run(ow, room, tickable, offline) {
     if (e && e.bot) return cleanName(e.n);
     return cleanName(room.players.get(id)?.name);
   }
-  const colorIdx = (g, id) => {
-    const e = rosterEntry(g, id);
-    return e ? fin(e.c) : 0;
-  };
 
   // ---------------------------------------------------------------- what happens in the world
   function makeHooks(kind) {
@@ -179,7 +177,10 @@ function run(ow, room, tickable, offline) {
         else if (spec.k === 'M') audio.mineDrop();
         else audio.fire(mine);
         if (spec.k !== 'M') fx.muzzle(spec.x, spec.y, spec.a, spec.k === 'S' ? 1.5 : spec.k === 'G' ? 0.5 : 1);
-        if (mine) fx.shake(spec.k === 'L' ? 0.2 : spec.k === 'S' ? 0.16 : spec.k === 'G' ? 0.03 : 0.05);
+        if (mine) {
+          fx.shake(spec.k === 'L' ? 0.2 : spec.k === 'S' ? 0.16 : spec.k === 'G' ? 0.03 : 0.05);
+          S.hintFired = true;
+        }
         if (local && kind !== 'demo') net.sendFire(spec, kind === 'lobby' ? 'lobby' : S.rid);
       },
       fizzle(k) {
@@ -191,7 +192,7 @@ function run(ow, room, tickable, offline) {
         audio.bounce(s.id === meId ? 1 : 0.55);
       },
       pop(x, y) {
-        fx.sparks(x, y, 0, Math.PI, 10, 3.5, ['#ffffff', '#c06bff', '#ffd37a']);
+        fx.sparks(x, y, 0, Math.PI, 10, 3.5, ['#c06bff', '#ff9d2e', '#ffcf40']);
         fx.ring(x, y, 0.05, 0.4, 0.25, '#c06bff', 0.03);
         audio.pop2();
       },
@@ -220,7 +221,7 @@ function run(ow, room, tickable, offline) {
         onClaim(k, c);
       },
       target(t) {
-        fx.sparks(t.x, t.y, 0, Math.PI, 9, 3, ['#ffffff', '#e63946']);
+        fx.sparks(t.x, t.y, 0, Math.PI, 9, 3, ['#e63946', '#ff9d2e', '#ffcf40']);
         fx.ring(t.x, t.y, 0.05, 0.4, 0.25, '#ffffff', 0.03);
         audio.target();
       },
@@ -264,7 +265,7 @@ function run(ow, room, tickable, offline) {
       fx.popup(WEAPON[c.kind].name, k.x, k.y - 0.3, WCOL[c.kind] || '#fff', 1);
       const g = net.G();
       if (g && S.scene === 'match') net.sendPick(g, c.n);
-    } else if (k.bot && S.scene === 'match') net.claimFor(k.id, c.n);
+    } else if (S.scene === 'match') net.claimFor(k.id, c.n); // (only the host's page decides about other tanks, and its call is the one that counts)
   }
 
   // ---------------------------------------------------------------- the three worlds
@@ -753,6 +754,13 @@ function run(ow, room, tickable, offline) {
   function postStep(dt) {
     const round = S.round;
     if (!round) return;
+    // the little animations of the tanks run on screen time, whether or not the world is being stepped (the intro isn't)
+    for (const k of round.tanks) {
+      const v = k.vis;
+      if (v.recoil > 0) v.recoil = Math.max(0, v.recoil - dt * 7);
+      if (v.pop > 0) v.pop = Math.max(0, v.pop - dt * 3);
+      if (v.flash > 0) v.flash = Math.max(0, v.flash - dt * 6);
+    }
     S.puffT += dt;
     const puff = S.puffT > 0.1;
     if (puff) S.puffT = 0;
@@ -780,6 +788,13 @@ function run(ow, room, tickable, offline) {
     }
     for (const s of round.shots) if (s.k === 'H' && !s.dead && fx.rand() < 0.6) fx.smoke(s.x - s.dx * 0.07, s.y - s.dy * 0.07, 1, 0.15, '#c9ccd4', 0.032);
     const me = S.myTank;
+    if (S.scene === 'lobby' && me) {
+      // the keys are shown until you have driven somewhere and fired
+      if (S.hintX < 0) {
+        S.hintX = me.x;
+        S.hintY = me.y;
+      } else if (Math.hypot(me.x - S.hintX, me.y - S.hintY) > 1.2) S.hintMoved = true;
+    }
     audio.engine(me && me.alive && me.sim && (S.scene === 'lobby' || room.running) ? clamp(Math.hypot(me.vx, me.vy) / 1.6, 0, 1) : 0);
   }
 
@@ -905,8 +920,15 @@ function run(ow, room, tickable, offline) {
   function frame(ts) {
     requestAnimationFrame(frame);
     try {
-      const dt = clamp((ts - last) / 1000, 0, 0.1);
+      const gap = (ts - last) / 1000;
+      const dt = clamp(gap, 0, 0.1);
       last = ts;
+      if (gap > 0.5 && S.round) {
+        // the page was asleep (a hidden tab): what was in flight is stale, and a mine has been arming all the while
+        S.round.shots.length = 0;
+        S.round.beams.length = 0;
+        for (const m of S.round.mines) m.age += gap;
+      }
       Sc.time = ts / 1000;
       if (tickable) tickable.tick();
       // Opened on its own there is no Ready strip: get ready by itself so the whole game can be seen.
@@ -982,6 +1004,7 @@ function run(ow, room, tickable, offline) {
         W.tags = S.scene === 'lobby' || (S.scene === 'match' && g && g.phase === 'intro');
         W.youUntil = S.youUntil;
         W.guide = S.scene === 'lobby' && room.match.phase === 'lobby';
+        W.keys = W.guide && !ow.controls.touch && !(S.hintMoved && S.hintFired);
         drawWorld(ctx, Sc, W);
         drawScreens(g);
       }

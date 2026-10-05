@@ -149,12 +149,6 @@ export class Round {
     }
     this.separate();
     if (!coast) for (let i = 0; i < tanks.length; i++) if (tanks[i].alive && tanks[i].sim) this.fireControl(tanks[i], dt);
-    for (let i = 0; i < tanks.length; i++) {
-      const v = tanks[i].vis;
-      if (v.recoil > 0) v.recoil = Math.max(0, v.recoil - dt * 7);
-      if (v.pop > 0) v.pop = Math.max(0, v.pop - dt * 3);
-      if (v.flash > 0) v.flash = Math.max(0, v.flash - dt * 6);
-    }
     this.claimCrates();
     this.stepShots(dt);
     this.stepMines(dt);

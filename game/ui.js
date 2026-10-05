@@ -207,7 +207,7 @@ export function drawCountdown(ctx, Sc, n, frac, accent = '#ff7a1a') {
   const u = Sc.u;
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
   const label = n >= 1 ? String(n) : 'GO';
-  const k = n >= 1 ? 1 + (1 - easeOutCubic(frac * 2)) * 0.9 : 1 + easeOutCubic(frac) * 0.35;
+  const k = Sc.reduced ? 1 : n >= 1 ? 1 + (1 - easeOutCubic(frac * 2)) * 0.9 : 1 + easeOutCubic(frac) * 0.35;
   const alpha = n >= 1 ? 1 : clamp(1.6 - frac * 1.6, 0, 1);
   const cx = Sc.w / 2;
   const cy = Sc.h * 0.46;
@@ -359,7 +359,7 @@ export function drawBanner(ctx, Sc, o) {
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
   const bh = 96 * u;
   const y = Sc.h * 0.4 - bh / 2;
-  const off = (1 - inn) * -Sc.w * 0.6 + (1 - out) * Sc.w * 0.3;
+  const off = Sc.reduced ? 0 : (1 - inn) * -Sc.w * 0.6 + (1 - out) * Sc.w * 0.3;
   ctx.save();
   ctx.globalAlpha = Math.min(inn, out);
   ctx.translate(off, 0);
