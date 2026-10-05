@@ -856,6 +856,9 @@ function run(ow, room, tickable, offline) {
     return chips;
   }
 
+  /** Where on the screen a tank is, as the area a banner or panel should stay off. */
+  const clearOf = (k) => (k && k.alive ? { y: Sc.oy + k.y * Sc.scale, r: 0.6 * Sc.scale + 12 } : null);
+
   function drawScreens(g) {
     const t = Sc.time;
     if (S.scene === 'title') {
@@ -900,7 +903,7 @@ function run(ow, room, tickable, offline) {
       accent: W.accent,
     });
     if (g.phase === 'intro') {
-      ui.drawBanner(ctx, Sc, { text: 'LAST TANK WINS', sub: `ROUND ${g.round}`, age, dur: (g.round === 1 ? INTRO_FIRST_MS : INTRO_MS) / 1000, accent: W.accent });
+      ui.drawBanner(ctx, Sc, { text: 'LAST TANK WINS', sub: `ROUND ${g.round}`, age, dur: (g.round === 1 ? INTRO_FIRST_MS : INTRO_MS) / 1000, accent: W.accent, avoid: clearOf(me) });
     } else if (g.phase === 'play') {
       if (t - S.goAt < 0.8) ui.drawCountdown(ctx, Sc, 0, (t - S.goAt) / 0.8, W.accent);
       if (S.iAmIn && me && !me.alive) ui.drawCallout(ctx, Sc, 'ELIMINATED', t - S.deadAt, { color: '#ff4b4b' });
@@ -910,7 +913,7 @@ function run(ow, room, tickable, offline) {
         S.rows = pointRows(g);
       }
       const win = rosterEntry(g, g.win);
-      ui.drawEnd(ctx, Sc, { rows: S.rows, goal: g.goal, winName: g.win ? nameOf(g, g.win) : '', winC: win ? fin(win.c) : 0, draw: !g.win, age, accent: W.accent });
+      ui.drawEnd(ctx, Sc, { rows: S.rows, goal: g.goal, winName: g.win ? nameOf(g, g.win) : '', winC: win ? fin(win.c) : 0, draw: !g.win, age, accent: W.accent, avoid: clearOf(S.round.byId.get(g.win) || me) });
     }
   }
 

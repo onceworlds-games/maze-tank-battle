@@ -69,6 +69,20 @@ function shadowOverlay(ctx, Sc, a) {
   ctx.fillRect(0, 0, Sc.w, Sc.h);
 }
 
+/**
+ * Where a band or panel of height `bh` goes so it does not sit on the tank that matters (`avoid`: its screen y and how far around it
+ * to keep clear): the middle if that is clear, else the top, else the bottom. Returns the band's top.
+ */
+function placeBand(Sc, bh, middleTop, avoid, topMin, bottomPad) {
+  if (!avoid) return middleTop;
+  const clear = (t) => t > avoid.y + avoid.r || t + bh < avoid.y - avoid.r;
+  if (clear(middleTop)) return middleTop;
+  const top = topMin;
+  if (clear(top)) return top;
+  const bottom = Sc.h - bh - bottomPad;
+  return clear(bottom) ? bottom : middleTop;
+}
+
 function keycap(ctx, label, x, y, size) {
   ctx.font = font(size, 600);
   const w = ctx.measureText(label).width + size * 0.9;
@@ -390,7 +404,7 @@ export function drawBanner(ctx, Sc, o) {
   if (out <= 0) return;
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
   const bh = 96 * u;
-  const y = Sc.h * 0.4 - bh / 2;
+  const y = placeBand(Sc, bh, Sc.h * 0.4 - bh / 2, o.avoid, Math.max(62, 56 * u), 14 * u);
   const off = Sc.reduced ? 0 : (1 - inn) * -Sc.w * 0.6 + (1 - out) * Sc.w * 0.3;
   ctx.save();
   ctx.globalAlpha = Math.min(inn, out);
@@ -410,13 +424,13 @@ export function drawEnd(ctx, Sc, o) {
   const u = Sc.u;
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
   const n = o.rows.length;
-  const rowH = Math.min(36 * u, (Sc.h - 150 * u) / Math.max(1, n));
+  const rowH = Math.min(32 * u, (Sc.h - 150 * u) / Math.max(1, n));
   const w = Math.min(Sc.w * 0.86, 480 * u);
-  const headH = 54 * u;
-  const h = headH + n * rowH + 12 * u;
+  const headH = 48 * u;
+  const h = headH + n * rowH + 10 * u;
   const inn = easeOutCubic(clamp(o.age / 0.25, 0, 1));
   const x = Sc.w / 2 - w / 2;
-  const y = Sc.h * 0.5 - h / 2 + (1 - inn) * 24 * u;
+  const y = placeBand(Sc, h, Sc.h * 0.5 - h / 2, o.avoid, 50 * u, 14 * u) + (1 - inn) * 24 * u;
   ctx.save();
   ctx.globalAlpha = inn;
   panel(ctx, x, y, w, h, o.accent);
