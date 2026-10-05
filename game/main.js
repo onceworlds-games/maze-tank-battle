@@ -611,7 +611,7 @@ function run(ow, room, tickable, offline) {
       Sc.ox = ox;
       Sc.oy = oy;
     } else if (S.scene === 'lobby') fitLayout(ui.lobbyTop(Sc), clamp(Sc.h * 0.17, 56, 96));
-    else fitLayout(ui.hudHeight(Sc) + 6, 6);
+    else fitLayout(ui.hudHeight(Sc, !S.iAmIn) + 6, 6);
   }
 
   // ---------------------------------------------------------------- the record and the phases of a round
@@ -894,10 +894,10 @@ function run(ow, room, tickable, offline) {
       chips: hudChips(g),
       timeLeft: g.phase === 'play' ? Math.max(0, g.until - room.matchNow()) : Infinity,
       out: S.iAmIn && me ? !me.alive : false,
+      spectating: !S.iAmIn,
       weapon: S.iAmIn && me && me.alive ? me.weapon : null,
       accent: W.accent,
     });
-    if (!S.iAmIn) ui.drawWatching(ctx, Sc);
     if (g.phase === 'intro') {
       ui.drawBanner(ctx, Sc, { text: 'LAST TANK WINS', sub: `ROUND ${g.round}`, age, dur: (g.round === 1 ? INTRO_FIRST_MS : INTRO_MS) / 1000, accent: W.accent });
     } else if (g.phase === 'play') {
@@ -1001,7 +1001,7 @@ function run(ow, room, tickable, offline) {
         W.round = round;
         W.time = Sc.time;
         W.accent = round ? accentFor(round.seed) : W.accent;
-        W.tags = S.scene === 'lobby' || (S.scene === 'match' && g && g.phase === 'intro');
+        W.tags = S.scene === 'lobby' || (S.scene === 'match' && g && g.phase === 'intro') ? true : S.scene === 'match' && g && g.phase !== 'final' ? 'mini' : false;
         W.youUntil = S.youUntil;
         W.guide = S.scene === 'lobby' && room.match.phase === 'lobby';
         W.keys = W.guide && !ow.controls.touch && !(S.hintMoved && S.hintFired);

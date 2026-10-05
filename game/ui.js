@@ -250,22 +250,64 @@ export function drawCallout(ctx, Sc, label, age, o = {}) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------ the top bar
-export const hudHeight = (Sc) => Math.round(40 * Sc.u);
+/** The height of the bar (a watcher gets a second strip for the scores: the platform's "Watching" note sits at the top centre). */
+export const hudHeight = (Sc, spectating = false) => Math.round((spectating ? 74 : 40) * Sc.u);
+
+/** One chip per tank, always in the same places: the colour and its symbol, the points, a line that fills up to the goal. */
+function drawChips(ctx, Sc, o, x0, cw, cy, ch) {
+  const u = Sc.u;
+  const narrow = Sc.w < 600;
+  o.chips.forEach((c, i) => {
+    const x = x0 + i * (cw + 6 * u);
+    const col = COLORS[c.c % COLORS.length];
+    ctx.globalAlpha = c.out ? 0.45 : 1;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(x, cy - ch / 2, cw, ch);
+    ctx.fillStyle = col.main;
+    ctx.fillRect(x, cy - ch / 2, 4 * u, ch);
+    ctx.fillStyle = '#ffffff';
+    glyph(ctx, c.c, x + 4 * u + 9 * u, cy - ch * 0.16, 5.5 * u);
+    text(ctx, String(c.score), x + cw - 8 * u, cy - ch * 0.08, (narrow ? 22 : 25) * u, { align: 'right', weight: 700, lw: 0 });
+    // progress to the goal, along the bottom of the chip
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillRect(x + 4 * u, cy + ch / 2 - 4 * u, cw - 4 * u, 3 * u);
+    ctx.fillStyle = col.main;
+    ctx.fillRect(x + 4 * u, cy + ch / 2 - 4 * u, (cw - 4 * u) * clamp(c.score / Math.max(1, o.goal), 0, 1), 3 * u);
+    if (c.me) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(1.5, 1.6 * u);
+      ctx.strokeRect(x + 0.5, cy - ch / 2 + 0.5, cw - 1, ch - 1);
+    }
+    if (c.out) {
+      // destroyed this round: a cross over its symbol
+      ctx.strokeStyle = '#ff5a5a';
+      ctx.lineWidth = Math.max(2, 2.4 * u);
+      ctx.lineCap = 'round';
+      const px = x + 4 * u + 9 * u;
+      const py = cy - ch * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(px - 7 * u, py - 7 * u);
+      ctx.lineTo(px + 7 * u, py + 7 * u);
+      ctx.moveTo(px + 7 * u, py - 7 * u);
+      ctx.lineTo(px - 7 * u, py + 7 * u);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  });
+}
 
 /**
- * o: { round, goal, chips: [{ c, score, out, me, bot }], timeLeft (ms, or Infinity), out (I am destroyed), spectating, weapon,
- *      accent, mid (middle label like "WATCHING") }
+ * o: { round, goal, chips: [{ c, score, out, me, bot }], timeLeft (ms, or Infinity), out (I am destroyed), spectating, weapon, accent }
  */
 export function drawHud(ctx, Sc, o) {
   const u = Sc.u;
-  const h = hudHeight(Sc);
+  const h = Math.round(40 * u);
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
   ctx.fillStyle = 'rgba(11,13,19,0.86)';
   ctx.fillRect(0, 0, Sc.w, h);
   ctx.fillStyle = o.accent || '#ff7a1a';
   ctx.fillRect(0, h - 2.5 * u, Sc.w, 2.5 * u);
   const left = Math.max(140, 12 * u);
-  const narrow = Sc.w < 600;
   // left: the goal, and the round
   const goalLabel = `FIRST TO ${o.goal}`;
   text(ctx, goalLabel, left, h * 0.33, 17 * u, { align: 'left', weight: 700, lw: 0 });
@@ -304,48 +346,27 @@ export function drawHud(ctx, Sc, o) {
     if (o.weapon.k === 'G') text(ctx, String(Math.max(0, o.weapon.ammo)), rx - 10 * u, h * 0.52, 18 * u, { align: 'right', weight: 700, lw: 0, fill: wc });
     rx -= w + 8 * u;
   }
-  // the middle: one chip per tank, always in the same places
   const n = o.chips.length;
+  const ch = h * 0.72;
+  if (o.spectating) {
+    // a watcher: the scores in a strip of their own, clear of the platform's note at the top centre
+    const cw = clamp((Sc.w - 24 * u) / Math.max(1, n) - 6 * u, 36 * u, 62 * u);
+    const total = n * cw + (n - 1) * 6 * u;
+    const sh = ch + 8 * u;
+    const x0 = Sc.w / 2 - total / 2;
+    ctx.fillStyle = 'rgba(11,13,19,0.86)';
+    ctx.fillRect(x0 - 10 * u, h, total + 20 * u, sh);
+    ctx.fillStyle = o.accent || '#ff7a1a';
+    ctx.fillRect(x0 - 10 * u, h + sh - 2.5 * u, total + 20 * u, 2.5 * u);
+    drawChips(ctx, Sc, o, x0, cw, h + sh / 2 - 1.5 * u, ch);
+    return;
+  }
+  // the middle: one chip per tank
   const free = rx - (left + leftW + 16 * u);
   const cw = clamp(free / Math.max(1, n) - 6 * u, 36 * u, 62 * u);
   const total = n * cw + (n - 1) * 6 * u;
   const cx0 = clamp(Sc.w / 2 - total / 2, left + leftW + 16 * u, Math.max(left + leftW + 16 * u, rx - total));
-  const ch = h * 0.72;
-  const cy = h * 0.5 - 1.5 * u;
-  o.chips.forEach((c, i) => {
-    const x = cx0 + i * (cw + 6 * u);
-    const col = COLORS[c.c % COLORS.length];
-    ctx.globalAlpha = c.out ? 0.42 : 1;
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(x, cy - ch / 2, cw, ch);
-    ctx.fillStyle = col.main;
-    ctx.fillRect(x, cy - ch / 2, 4 * u, ch);
-    ctx.fillStyle = '#ffffff';
-    glyph(ctx, c.c, x + 4 * u + 9 * u, cy - ch * 0.16, 5.5 * u);
-    text(ctx, String(c.score), x + cw - 8 * u, cy - ch * 0.08, (narrow ? 22 : 25) * u, { align: 'right', weight: 700, lw: 0 });
-    // progress to the goal, along the bottom of the chip
-    ctx.fillStyle = 'rgba(255,255,255,0.14)';
-    ctx.fillRect(x + 4 * u, cy + ch / 2 - 4 * u, cw - 4 * u, 3 * u);
-    ctx.fillStyle = col.main;
-    ctx.fillRect(x + 4 * u, cy + ch / 2 - 4 * u, (cw - 4 * u) * clamp(c.score / Math.max(1, o.goal), 0, 1), 3 * u);
-    if (c.me) {
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = Math.max(1.5, 1.6 * u);
-      ctx.strokeRect(x + 0.5, cy - ch / 2 + 0.5, cw - 1, ch - 1);
-    }
-    if (c.out) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = Math.max(1.5, 2 * u);
-      ctx.beginPath();
-      ctx.moveTo(x + cw - 8 * u - 14 * u, cy - ch * 0.08 - 8 * u);
-      ctx.lineTo(x + cw - 8 * u, cy - ch * 0.08 + 8 * u);
-      ctx.moveTo(x + cw - 8 * u, cy - ch * 0.08 - 8 * u);
-      ctx.lineTo(x + cw - 8 * u - 14 * u, cy - ch * 0.08 + 8 * u);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-  });
-  if (o.mid) text(ctx, o.mid, Sc.w / 2, h + 20 * u, 20 * u, { weight: 700, fill: '#ffffff' });
+  drawChips(ctx, Sc, o, cx0, cw, h * 0.5 - 1.5 * u, ch);
 }
 
 // ------------------------------------------------------------------------------------------------------------------ a round begins and ends
@@ -520,10 +541,4 @@ export function drawPodium(ctx, Sc, o) {
     });
   }
   ctx.globalAlpha = 1;
-}
-
-export function drawWatching(ctx, Sc) {
-  const u = Sc.u;
-  ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
-  tracked(ctx, 'WATCHING', Sc.w / 2, hudHeight(Sc) + 22 * u, 22 * u, { weight: 700, spacing: 0.14, fill: '#ffffff' });
 }

@@ -85,7 +85,7 @@ test('every drawing routine runs clean', async () => {
       ui.drawPodium(ctx, Sc, { top, you: { label: '5th', score: 2 }, awards: { kills: { ...top[0], v: 7 }, bank: { ...top[1], v: 4 } }, age, win: false });
       ui.drawPodium(ctx, Sc, { top: top.slice(0, 2), you: null, awards: { kills: null, bank: null }, age, win: true });
     }
-    ui.drawWatching(ctx, Sc);
+    ui.drawHud(ctx, Sc, { round: 2, goal: 5, chips, timeLeft: 30000, out: false, spectating: true, weapon: null, accent: '#12c2e9' });
     for (const k of 'LSGMH') drawWeaponIcon(ctx, k, 30, 30, 20, '#fff');
     assert.equal(ctx.depth, 0, 'every save() has its restore()');
   }

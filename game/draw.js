@@ -1,7 +1,7 @@
 // The world, drawn: the board (cached once per maze and size), tread marks and scorch marks, crates and mines, tanks with moving
 // tracks, shots with trails, laser beams, particles. World units are cells; Sc says where they land on the screen:
 //   Sc = { w, h, pr, scale (px per cell), ox, oy (where world 0,0 is, px), shx, shy (shake, px), time (s), q, reduced }
-//   W  = { round, fx, accent, time, meId, tags (draw name tags), youUntil (s: "you" arrow shown until), guide (lobby aim line),
+//   W  = { round, fx, accent, time, meId, tags (false, true: name tags, 'mini': small ones for play), youUntil (s: "you" arrow shown until), guide (lobby aim line),
 //          keys (lobby: show the keys), crateSeen: Map(crate n -> time first seen) }
 
 import { drawHead } from './avatars.js';
@@ -131,7 +131,7 @@ function makeLayer(Sc, maze, paint) {
   if (!c) throw new Error('no 2d');
   c.setTransform(s * k, 0, 0, s * k, LAYER_PAD * s * k, LAYER_PAD * s * k);
   paint(c, s * k);
-  return { cv, w, h }; // w and h: the size it covers on the screen, in device pixels
+  return { cv, wc: maze.cols + 2 * LAYER_PAD, hc: maze.rows + 2 * LAYER_PAD }; // wc, hc: the size it covers, in cells
 }
 
 function ensureCache(Sc, maze, accent) {
@@ -149,8 +149,8 @@ function ensureCache(Sc, maze, accent) {
   return cache;
 }
 
-function blit(ctx, Sc, layer) {
-  ctx.drawImage(layer.cv, V.ox - LAYER_PAD * V.s, V.oy - LAYER_PAD * V.s, layer.w / Sc.pr, layer.h / Sc.pr);
+function blit(ctx, layer) {
+  ctx.drawImage(layer.cv, V.ox - LAYER_PAD * V.s, V.oy - LAYER_PAD * V.s, layer.wc * V.s, layer.hc * V.s);
 }
 
 /** Paint a world-space routine straight on the screen (the fallback when there is no offscreen canvas). */
@@ -623,17 +623,18 @@ function drawTank(ctx, k, W) {
 }
 
 /** A name tag above a tank: the avatar head, the name, and a tick when they are ready. */
-function drawTag(ctx, k, Sc) {
+function drawTag(ctx, k, Sc, mini) {
   if (!k.tag) return;
   const u = Sc.u;
-  const size = Math.max(14.5, 15 * u);
+  const size = mini ? Math.max(12.5, 13 * u) : Math.max(14.5, 15 * u);
+  ctx.globalAlpha = mini ? 0.88 : 1;
   const x = V.ox + k.x * V.s;
   const y = V.oy + (k.y - 0.42) * V.s - 6 * u;
   const col = COLORS[k.c % COLORS.length];
   ctx.font = font(size, 600);
   const tw = ctx.measureText(k.tag).width;
-  const head = size * 0.62;
-  const wTotal = head * 2 + 6 * u + tw + 10 * u + (k.ready ? size * 1.0 : 0);
+  const head = size * 0.7;
+  const wTotal = head * 2 + 6 * u + tw + 10 * u + (k.ready && !mini ? size * 1.0 : 0);
   const h = size * 1.35;
   const x0 = x - wTotal / 2;
   ctx.fillStyle = 'rgba(12,14,20,0.8)';
@@ -646,7 +647,7 @@ function drawTag(ctx, k, Sc) {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
   ctx.fillText(k.tag, x0 + 3 * u + 6 * u + head * 2 + 3 * u, y + size * 0.04);
-  if (k.ready) {
+  if (k.ready && !mini) {
     ctx.strokeStyle = '#46e07a';
     ctx.lineWidth = Math.max(2, size * 0.16);
     ctx.lineCap = 'round';
@@ -658,6 +659,7 @@ function drawTag(ctx, k, Sc) {
     ctx.lineTo(cx + size * 0.3, y - size * 0.2);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
 /** Keys, once: W A S D drive, Space fires, shown beside your tank in the lobby until you have done both. */
@@ -692,7 +694,9 @@ function drawYou(ctx, k, Sc, W) {
   const u = Sc.u;
   const a = Math.min(1, t * 2);
   const x = V.ox + k.x * V.s;
-  const y = V.oy + (k.y - 0.5) * V.s - 8 * u + Math.sin(W.time * 7) * 3 * u;
+  // above the name tag when there is one
+  const lift = W.tags === 'mini' ? 20 * u : W.tags ? 28 * u : 0;
+  const y = V.oy + (k.y - 0.5) * V.s - 8 * u - lift + Math.sin(W.time * 7) * 3 * u;
   ctx.globalAlpha = a;
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = 'rgba(8,10,16,0.85)';
@@ -819,13 +823,14 @@ export function drawWorld(ctx, Sc, W) {
   V.oy = Sc.oy + Sc.shy;
   V.s = Sc.scale;
   const cache = ensureCache(Sc, round.maze, W.accent);
-  if (cache.floor) blit(ctx, Sc, cache.floor);
+  if (cache.floor) blit(ctx, cache.floor);
   else direct(ctx, Sc, (c, s) => paintFloor(c, round.maze, s));
   drawDecals(ctx, fx);
   drawMarks(ctx, fx);
+  for (const g of round.targets) drawTarget(ctx, g, W);
   drawCrates(ctx, W);
   drawMines(ctx, W);
-  if (cache.walls) blit(ctx, Sc, cache.walls);
+  if (cache.walls) blit(ctx, cache.walls);
   else direct(ctx, Sc, (c) => paintWalls(c, round.maze, W.accent));
   const tanks = round.tanks;
   for (const k of tanks) if (k.alive && !k.hidden) tankShadow(ctx, k);
@@ -834,11 +839,9 @@ export function drawWorld(ctx, Sc, W) {
   for (const s of round.shots) if (!s.dead) drawShot(ctx, s, W);
   drawBeams(ctx, round);
   drawParticles(ctx, fx);
-  if (W.tags) for (const k of tanks) if (k.alive && !k.hidden) drawTag(ctx, k, Sc);
+  if (W.tags) for (const k of tanks) if (k.alive && !k.hidden) drawTag(ctx, k, Sc, W.tags === 'mini');
   for (const k of tanks) if (k.me && k.alive && !k.hidden) drawYou(ctx, k, Sc, W);
   if (W.keys) for (const k of tanks) if (k.me && k.alive && !k.hidden) drawKeys(ctx, k, Sc);
-  // practice targets
-  for (const g of round.targets) drawTarget(ctx, g, W);
   drawPopups(ctx, fx, Sc);
 }
 
