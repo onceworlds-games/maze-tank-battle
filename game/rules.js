@@ -6,8 +6,8 @@ export const COLS = 9;
 export const ROWS = 6;
 export const STEP = 1 / 60; // the fixed step every page simulates with, in seconds
 
-export const GOAL_OPTIONS = [5, 10, 15];
-export const DEFAULT_GOAL = 10;
+export const GOAL_OPTIONS = [3, 5, 10];
+export const DEFAULT_GOAL = 5; // about 4-5 minutes against three bots
 export const TABLE = 4; // bots fill the table up to this many tanks
 export const MAX_PLAYERS = 8;
 
