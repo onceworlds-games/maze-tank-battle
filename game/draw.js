@@ -170,6 +170,20 @@ function drawBackdrop(ctx, Sc) {
   g.addColorStop(1, '#0b0d13');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, Sc.w, Sc.h);
+  // a faint blueprint grid on the ground the board sits on
+  const step = Math.max(28, Sc.scale * 0.5);
+  ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = (Sc.ox % step) - step; x < Sc.w; x += step) {
+    ctx.moveTo(Math.round(x) + 0.5, 0);
+    ctx.lineTo(Math.round(x) + 0.5, Sc.h);
+  }
+  for (let y = (Sc.oy % step) - step; y < Sc.h; y += step) {
+    ctx.moveTo(0, Math.round(y) + 0.5);
+    ctx.lineTo(Sc.w, Math.round(y) + 0.5);
+  }
+  ctx.stroke();
 }
 
 // ------------------------------------------------------------------------------------------------------------------ marks on the floor

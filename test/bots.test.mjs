@@ -90,16 +90,16 @@ test('the angle a bot picks really hits, bounces included: fire it and see (perf
       found++;
       if (sol.b >= 1) banks++;
       // the same two tanks in a fresh round, the bot pointing at the angle it chose: its shot must kill the target before anything else dies
-      const test = mk();
-      const tb = test.byId.get('bot1');
+      const fresh = mk();
+      const tb = fresh.byId.get('bot1');
       tb.ai = null;
       tb.x = bot.x;
       tb.y = bot.y;
       tb.a = sol.a;
       let dead = null;
-      test.hooks.dead = (k, info) => (dead = dead || { id: k.id, ...info });
+      fresh.hooks.dead = (k, info) => (dead = dead || { id: k.id, ...info });
       tb.inp.edge = true;
-      run(test, 14);
+      run(fresh, 14);
       if (dead && dead.id === 'z' && dead.by === 'bot1') hit++;
     }
   }

@@ -2,7 +2,7 @@
 // every tank `sim` (so every kill is decided here). Used by the tests; not a test itself.
 import { Match } from '../game/match.js';
 import { Round } from '../game/round.js';
-import { COLS, ROWS, STEP, TANK, buildRoster, roundSeed } from '../game/rules.js';
+import { COLS, ROWS, STEP, buildRoster, roundSeed } from '../game/rules.js';
 
 export function makeRound(roster, matchSeed, roundNo, practice = false) {
   const round = new Round({ roster, seed: roundSeed(matchSeed, roundNo), roundNo, practice });

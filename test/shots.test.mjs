@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { castRects, reflect, segObb } from '../game/geom.js';
 import { WALL_T, makeMaze } from '../game/maze.js';
-import { Round } from '../game/round.js';
 import { COLS, ROWS, SHOT, STEP, TANK } from '../game/rules.js';
 import { mulberry32 } from '../game/rng.js';
 import { near, openMaze, roundWith, run } from './helpers.mjs';
