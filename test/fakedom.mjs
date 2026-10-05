@@ -105,7 +105,7 @@ export function makeCtx(label = 'ctx') {
   const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
   const px = () => Number(/(\d+(?:\.\d+)?)px/.exec(String(state.font))?.[1] ?? 10);
   const methods = {
-    measureText: (str) => ({ width: String(str).length * px() * 0.68 }),
+    measureText: (str) => ({ width: String(str).length * px() * 0.5 }),
     createLinearGradient: () => grad,
     createRadialGradient: () => grad,
     getLineDash: () => [],
@@ -143,7 +143,7 @@ export function makeCtx(label = 'ctx') {
       if (typeof str !== 'string' && typeof str !== 'number') note(`${label}.fillText of a non-string`);
       if (!Number.isFinite(x) || !Number.isFinite(y)) note(`${label}.fillText at (${x}, ${y})`);
       const k = Math.hypot(m[0], m[1]);
-      texts.push({ text: String(str), x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5], size: px() * k, width: String(str).length * px() * 0.68 * k, align: state.textAlign, alpha: state.globalAlpha });
+      texts.push({ text: String(str), x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5], size: px() * k, width: String(str).length * px() * 0.5 * k, align: state.textAlign, alpha: state.globalAlpha });
     },
   };
   const proxy = new Proxy(

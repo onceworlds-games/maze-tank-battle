@@ -12,21 +12,29 @@ export const rects = { play: null, goal: [] };
 const PANEL = 'rgba(12,14,21,0.84)';
 const DIM = 'rgba(255,255,255,0.62)';
 
-/** Text with room between the letters (headings). */
+/** Text with room between the letters (headings). o.maxW: shrink it to fit that width. Returns the width. */
 function tracked(ctx, str, x, y, size, o = {}) {
-  const sp = (o.spacing ?? 0.06) * size;
-  ctx.font = font(size, o.weight || 700);
-  let total = -sp;
-  const ws = [];
-  for (const ch of str) {
-    const w = ctx.measureText(ch).width;
-    ws.push(w);
-    total += w + sp;
+  let ws = [];
+  let total = 0;
+  let sp = 0;
+  for (let pass = 0; pass < 2; pass++) {
+    sp = (o.spacing ?? 0.06) * size;
+    ctx.font = font(size, o.weight || 700);
+    total = -sp;
+    ws = [];
+    for (const ch of str) {
+      const w = ctx.measureText(ch).width;
+      ws.push(w);
+      total += w + sp;
+    }
+    if (!o.maxW || total <= o.maxW || total <= 0) break;
+    size *= o.maxW / total;
   }
   let cx = (o.align || 'center') === 'center' ? x - total / 2 : (o.align || 'center') === 'right' ? x - total : x;
   let i = 0;
+  const lw = o.lw !== undefined ? o.lw * (size / (o.size0 || size)) : undefined;
   for (const ch of str) {
-    text(ctx, ch, cx + ws[i] / 2, y, size, { ...o, align: 'center' });
+    text(ctx, ch, cx + ws[i] / 2, y, size, { ...o, lw, align: 'center' });
     cx += ws[i] + sp;
     i++;
   }
@@ -81,8 +89,9 @@ export function drawTitle(ctx, Sc, t, o = {}) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.transform(1, 0, -0.14, 1, 0, 0);
-  tracked(ctx, 'MAZE TANK', 0, -big * 0.55, big, { weight: 700, lw: big * 0.1, spacing: 0.05 });
-  tracked(ctx, 'BATTLE', 0, big * 0.55, big * 1.28, { weight: 700, fill: accent, lw: big * 0.13, spacing: 0.06 });
+  const maxW = Sc.w * 0.86;
+  tracked(ctx, 'MAZE TANK', 0, -big * 0.55, big, { weight: 700, lw: big * 0.1, spacing: 0.05, maxW, size0: big });
+  tracked(ctx, 'BATTLE', 0, big * 0.55, big * 1.28, { weight: 700, fill: accent, lw: big * 0.13, spacing: 0.06, maxW: maxW * 0.9, size0: big * 1.28 });
   // two bars either side, like a tank's treads
   ctx.fillStyle = accent;
   const bw = Math.min(Sc.w * 0.2, 260 * u);
@@ -113,12 +122,18 @@ export function drawTitle(ctx, Sc, t, o = {}) {
   ctx.closePath();
   ctx.fill();
   tracked(ctx, 'PLAY', bw2 * 0.04, bh * 0.02, bh * 0.66, { weight: 700, lw: 0, spacing: 0.1 });
-  if (!o.touch) keycap(ctx, 'SPACE', bw2 * 0.34, 0, bh * 0.2);
+  if (!o.touch) keycap(ctx, 'SPACE', bw2 * 0.34, 0, bh * 0.24);
   ctx.restore();
   rects.play = { x: bx, y: by - 4 * u, w: bw2, h: bh + 10 * u };
 }
 
 // ------------------------------------------------------------------------------------------------------------------ lobby
+/** On a narrow screen the settings go under the platform's buttons instead of beside them. */
+const lobbyBelow = (Sc) => Sc.w < 520;
+
+/** How much room the lobby leaves at the top of the screen for its settings. */
+export const lobbyTop = (Sc) => (lobbyBelow(Sc) ? Math.round(58 + 50 * Sc.u + 8) : Math.round(58 * Sc.u));
+
 /** The setting as large values at the top: the host taps one. o: { goal, options, isHost, hint, accent, canRoom }. */
 export function drawLobbyHud(ctx, Sc, o) {
   const u = Sc.u;
@@ -131,8 +146,10 @@ export function drawLobbyHud(ctx, Sc, o) {
   ctx.font = font(22 * u, 700);
   const lw = ctx.measureText(label).width;
   const total = lw + 14 * u + o.options.length * bw + (o.options.length - 1) * gap + 20 * u;
-  const x0 = Math.max(140, Sc.w / 2 - total / 2);
-  const y0 = 6 * u;
+  // beside the platform's buttons when there is room, else below them
+  const below = lobbyBelow(Sc);
+  const x0 = below ? Math.max(8, Sc.w / 2 - total / 2) : Math.max(140, Sc.w / 2 - total / 2);
+  const y0 = below ? 58 : 6 * u;
   panel(ctx, x0, y0, total, bh + 8 * u, accent, 'bottom');
   text(ctx, label, x0 + 10 * u, y0 + (bh + 8 * u) / 2 - 2 * u, 22 * u, { align: 'left', weight: 700, lw: 0 });
   rects.goal.length = 0;
@@ -151,11 +168,11 @@ export function drawLobbyHud(ctx, Sc, o) {
     if (o.isHost) rects.goal.push({ x, y, w: bw, h: bh, v });
     x += bw + gap;
   }
-  if (o.hint && x0 + total + 24 * u + 180 * u < Sc.w) {
+  if (o.hint) {
     ctx.font = font(19 * u, 600);
-    text(ctx, o.hint, x0 + total + 16 * u, y0 + (bh + 8 * u) / 2, 19 * u, { align: 'left', fill: 'rgba(255,255,255,0.8)', weight: 600 });
-  } else if (o.hint) {
-    text(ctx, o.hint, Sc.w / 2, y0 + bh + 26 * u, 19 * u, { fill: 'rgba(255,255,255,0.85)', weight: 600 });
+    const hw = ctx.measureText(o.hint).width;
+    if (x0 + total + 16 * u + hw < Sc.w - 8) text(ctx, o.hint, x0 + total + 16 * u, y0 + (bh + 8 * u) / 2, 19 * u, { align: 'left', fill: 'rgba(255,255,255,0.8)', weight: 600 });
+    else text(ctx, o.hint, Sc.w / 2, y0 + bh + 26 * u, 19 * u, { fill: 'rgba(255,255,255,0.85)', weight: 600 });
   }
 }
 
@@ -251,9 +268,9 @@ export function drawHud(ctx, Sc, o) {
   const narrow = Sc.w < 600;
   // left: the goal, and the round
   const goalLabel = `FIRST TO ${o.goal}`;
-  text(ctx, goalLabel, left, h * 0.36, 19 * u, { align: 'left', weight: 700, lw: 0 });
-  text(ctx, `ROUND ${o.round}`, left, h * 0.76 - 2 * u, 13 * u, { align: 'left', weight: 600, lw: 0, fill: DIM });
-  ctx.font = font(19 * u, 700);
+  text(ctx, goalLabel, left, h * 0.33, 17 * u, { align: 'left', weight: 700, lw: 0 });
+  text(ctx, `ROUND ${o.round}`, left, h * 0.74, Math.max(11.5, 13 * u), { align: 'left', weight: 600, lw: 0, fill: DIM });
+  ctx.font = font(17 * u, 700);
   const leftW = ctx.measureText(goalLabel).width;
   // right: time and the power-up in hand
   let rx = Sc.w - 12 * u;
@@ -351,7 +368,7 @@ export function drawBanner(ctx, Sc, o) {
   ctx.fillStyle = o.accent;
   ctx.fillRect(0, y, Sc.w, 4 * u);
   ctx.fillRect(0, y + bh - 4 * u, Sc.w, 4 * u);
-  tracked(ctx, o.text, Sc.w / 2, y + bh * 0.42, 58 * u, { weight: 700, lw: 0, spacing: 0.1 });
+  tracked(ctx, o.text, Sc.w / 2, y + bh * 0.42, 58 * u, { weight: 700, lw: 0, spacing: 0.1, maxW: Sc.w * 0.9 });
   tracked(ctx, o.sub, Sc.w / 2, y + bh * 0.8, 24 * u, { weight: 600, lw: 0, spacing: 0.16, fill: o.accent });
   ctx.restore();
 }

@@ -626,7 +626,7 @@ function drawTank(ctx, k, W) {
 function drawTag(ctx, k, Sc) {
   if (!k.tag) return;
   const u = Sc.u;
-  const size = 15 * u;
+  const size = Math.max(14.5, 15 * u);
   const x = V.ox + k.x * V.s;
   const y = V.oy + (k.y - 0.42) * V.s - 6 * u;
   const col = COLORS[k.c % COLORS.length];

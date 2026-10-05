@@ -195,3 +195,101 @@ test('a page that reloads mid-round carries on; one that goes away stands still;
   assert.equal(hub.match.phase, 'lobby', `the match ended (frame ${frameN}) with a player gone`);
   assert.ok(A.room.state.g.round >= 6);
 });
+
+test('pages agree what has been fired (every kind of shot, in the lobby where nothing is lost)', async () => {
+  const hub = new Hub();
+  const A = await boot(hub, 'fay', 'f');
+  const B = await boot(hub, 'gus', 'g');
+  for (const p of [A, B]) {
+    p.page.install();
+    p.page.key('Space');
+  }
+  for (let i = 0; i < 120; i++) step(hub);
+  const rb = B.api.S.lobby;
+  const ra = A.api.S.lobby;
+  const gus = rb.byId.get('gus');
+  assert.ok(gus && ra.byId.get('gus'), 'both see him');
+  for (const kind of ['S', 'G', 'M', 'H', 'L']) {
+    gus.weapon = { k: kind, ammo: 20 };
+    gus.cd = 0;
+    gus.rep = 0;
+    B.page.install();
+    B.page.key('Space', true);
+    for (let i = 0; i < 10; i++) step(hub);
+    B.page.key('Space', false);
+    for (let i = 0; i < 10; i++) step(hub);
+    const count = (r) => r.shots.filter((s) => s.id === 'gus' && s.k === kind).length + r.mines.filter((m) => m.id === 'gus').length + r.beams.filter((b) => b.id === 'gus').length;
+    assert.ok(count(rb) >= 1, `${kind}: something of his on his page`);
+    assert.ok(count(ra) >= 1, `${kind}: and on the other page`);
+    if (kind === 'S') assert.equal(rb.shots.filter((s) => s.k === 'S').length, ra.shots.filter((s) => s.k === 'S').length, 'the same five pellets');
+    gus.weapon = null;
+    rb.shots.length = 0;
+    ra.shots.length = 0;
+  }
+  assertClean([A, B], 'every kind');
+});
+
+test('pages agree where everyone is; a crate is taken and arms its taker on every page', async () => {
+  const hub = new Hub();
+  const A = await boot(hub, 'hal', 'h');
+  const B = await boot(hub, 'ivy', 'i');
+  for (const p of [A, B]) {
+    p.page.install();
+    p.page.key('Space');
+  }
+  for (let i = 0; i < 120; i++) step(hub);
+  hub.start();
+  const until = (pred, max = 60 * 60) => {
+    for (let i = 0; i < max; i++) {
+      if (pred()) return true;
+      step(hub);
+    }
+    return false;
+  };
+  assert.ok(until(() => A.room.state.g && A.room.state.g.phase === 'play' && A.room.matchNow() - A.room.state.g.t0 > 2200), 'play began');
+  for (let i = 0; i < 20; i++) step(hub);
+  const ra = A.api.S.round;
+  const rb = B.api.S.round;
+  for (const k of ra.tanks) if (k.bot) k.ai.warm = 1e9; // (the bots only wander: nobody dies while this goes on)
+  // the bots as the guest sees them are where the host has them
+  for (const e of A.room.state.g.roster.filter((x) => x.bot)) {
+    const a = ra.byId.get(e.id);
+    const b = rb.byId.get(e.id);
+    if (!a.alive || !b.alive) continue;
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 0.9, `${e.id}: host ${a.x.toFixed(2)},${a.y.toFixed(2)} guest ${b.x.toFixed(2)},${b.y.toFixed(2)}`);
+  }
+  // the guest drives; the host sees his tank where it is
+  const ivy = rb.byId.get('ivy');
+  const seen = ra.byId.get('ivy');
+  B.page.install();
+  B.page.key('KeyW', true);
+  for (let i = 0; i < 40; i++) step(hub);
+  B.page.key('KeyW', false);
+  for (let i = 0; i < 20; i++) step(hub);
+  assert.ok(ivy.alive, 'ivy is still in');
+  assert.ok(Math.hypot(ivy.x - seen.x, ivy.y - seen.y) < 0.5, `ivy is at ${ivy.x},${ivy.y} and the host draws her at ${seen.x},${seen.y}`);
+  // a crate lands on ivy: she takes it, the host's book and the host's view of her agree
+  const g = A.api.net.match.g;
+  g.cn += 1;
+  const cx = Math.floor(ivy.x);
+  const cy = Math.floor(ivy.y);
+  ivy.weapon = null; // (she may have taken one that came by already)
+  ivy.x = cx + 0.6; // close enough to the middle of the cell to take what lies there
+  ivy.y = cy + 0.5;
+  g.cr = [[g.cn, cx, cy, 'L']];
+  A.api.net.match.dirty = true;
+  const mine = g.cn;
+  for (let i = 0; i < 30; i++) step(hub);
+  assert.ok(!A.room.state.g.cr.some((c) => c[0] === mine), 'the crate left the floor');
+  assert.equal(ivy.weapon && ivy.weapon.k, 'L', 'ivy holds the laser');
+  assert.equal(seen.weapon && seen.weapon.k, 'L', 'and the host sees it');
+  B.page.install();
+  B.page.key('Space', true);
+  frame();
+  B.page.key('Space', false);
+  for (let i = 0; i < 12; i++) step(hub);
+  assert.ok(rb.beams.length >= 1, 'the beam on her page');
+  assert.ok(ra.beams.length >= 1, 'and on the host');
+  assert.equal(ivy.weapon, null);
+  assertClean([A, B], 'crate and laser');
+});

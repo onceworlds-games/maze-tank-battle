@@ -609,7 +609,7 @@ function run(ow, room, tickable, offline) {
       oy = mh <= Sc.h ? (Sc.h - ROWS * Sc.scale) / 2 : clamp(oy, Sc.h - mh + 0.15 * Sc.scale, 0.15 * Sc.scale);
       Sc.ox = ox;
       Sc.oy = oy;
-    } else if (S.scene === 'lobby') fitLayout(Math.round(58 * Sc.u), clamp(Sc.h * 0.17, 56, 96));
+    } else if (S.scene === 'lobby') fitLayout(ui.lobbyTop(Sc), clamp(Sc.h * 0.17, 56, 96));
     else fitLayout(ui.hudHeight(Sc) + 6, 6);
   }
 
