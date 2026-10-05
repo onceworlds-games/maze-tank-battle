@@ -273,7 +273,14 @@ function action(ctx) {
   const total = f.l1 + f.l2;
   const spec = { id: 'z', n: 1, x: f.mx, y: f.my, a: f.a, k: 'N', at: 0 };
   round.spawn(spec, Math.max(0, (total - 0.8) / SHOT.speed));
-  fx.bounce(bx, by, -Math.cos(f.a) * 0.0, 0);
+  // sparks off the wall where it bounced: the wall's normal is what turns the way in into the way out
+  const inx = bx - f.pts[0];
+  const iny = by - f.pts[1];
+  const onx = f.pts[4] - bx;
+  const ony = f.pts[5] - by;
+  const il = Math.hypot(inx, iny) || 1;
+  const ol = Math.hypot(onx, ony) || 1;
+  fx.bounce(bx, by, onx / ol - inx / il, ony / ol - iny / il);
   drive(fx, [f.tx - Math.cos(f.ta) * 1.5, f.ty - Math.sin(f.ta) * 1.5, f.tx, f.ty], 0.3);
   fx.decal(f.tx + 0.9, f.ty + 0.5, 0.26);
   fx.update(0.05);
@@ -296,8 +303,8 @@ function action(ctx) {
 function win(ctx) {
   const [w, h] = SIZES.win;
   const maze = makeMaze(31337);
-  const scale = 205;
-  const { fx, Sc } = mkScene(21, w, h, scale, COLS / 2, ROWS / 2 + 0.35);
+  const scale = 270;
+  const { fx, Sc } = mkScene(21, w, h, scale, COLS / 2 + 0.1, ROWS / 2 + 0.25);
   const cx = Math.floor(COLS / 2) + 0.5;
   const cy = Math.floor(ROWS / 2) + 0.5;
   const round = newRound(maze, [
@@ -365,8 +372,11 @@ function icon(ctx) {
   ctx.fillRect(476, 52, 6, 290);
   // the ricochet: out of the barrel, off the top wall, off the right wall
   const a = (-55 * Math.PI) / 180;
-  const sx = 118 + Math.cos(a) * 200;
-  const sy = 352 + Math.sin(a) * 200;
+  const ZOOM = 520;
+  const TX = 190;
+  const TY = 322;
+  const sx = TX + Math.cos(a) * TANK.muzzle * ZOOM;
+  const sy = TY + Math.sin(a) * TANK.muzzle * ZOOM;
   const t1 = (sy - 94) / -Math.sin(a);
   const p1 = [sx + Math.cos(a) * t1, 94];
   const dx = Math.cos(a);
@@ -406,7 +416,7 @@ function icon(ctx) {
     ctx.fill();
   }
   // the tank, big, firing
-  const Sc = { w, h, pr: 1, u: 1, scale: 640, ox: 118, oy: 352, shx: 0, shy: 0, time: 0, q: 1, reduced: false };
+  const Sc = { w, h, pr: 1, u: 1, scale: ZOOM, ox: TX, oy: TY, shx: 0, shy: 0, time: 0, q: 1, reduced: false };
   const round = newRound(makeMaze(1), [{ id: 'p', x: 0, y: 0, a, c: 0 }]);
   const k = round.tanks[0];
   k.vis.recoil = 0.55;

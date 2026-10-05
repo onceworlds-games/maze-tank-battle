@@ -6,7 +6,8 @@
 //      tEnd (play ms the round ended, 0 while it runs), roster: [{ id, bot, n, c }], scores, kills, bank (best bounces on a kill), st
 //      (rounds won in a row), out: { id: [n, by, playMs, bounces] } (this round's destroyed tanks, in order), lastOut (play ms of the
 //      last one, -1 for none), win (the round's winner or ''), over (1 when this round decided the match),
-//      cr: [[n, cellX, cellY, kind]] (crates on the floor), cn (the last crate's number), ncr (play ms the next crate comes) }
+//      cr: [[n, cellX, cellY, kind]] (crates on the floor), cn (the last crate's number), ncr (play ms the next crate comes),
+//      gone: [ids] (people who left: out of every round from then on, their points stay) }
 
 import { hashStr, mulberry32 } from './rng.js';
 import { COLS, CRATE, END_MS, FINAL_MS, INTRO_FIRST_MS, INTRO_MS, MAX_ROUNDS, ROWS, ROUND_MAX_MS, SETTLE_MS, WEAPON_KEYS, clamp, num } from './rules.js';
@@ -37,6 +38,7 @@ export class Match {
       cr: [],
       cn: 0,
       ncr: 0,
+      gone: [],
     };
     this.dirty = true;
     this.lastEnd = -1e9;
@@ -48,6 +50,7 @@ export class Match {
     const m = Object.create(Match.prototype);
     m.g = JSON.parse(JSON.stringify(g));
     m.g.by = by;
+    if (!Array.isArray(m.g.gone)) m.g.gone = [];
     m.dirty = true;
     m.lastEnd = -1e9;
     m.seedRng();
@@ -130,6 +133,7 @@ export class Match {
     g.t0 = 0;
     g.tEnd = 0;
     g.out = {};
+    for (const id of g.gone) if (g.roster.some((e) => e.id === id)) g.out[id] = [Object.keys(g.out).length + 1, '', 0, 0];
     g.lastOut = -1;
     g.win = '';
     g.cr = [];
@@ -176,6 +180,17 @@ export class Match {
       g.kills = { ...g.kills, [by]: (g.kills[by] || 0) + 1 };
       if (b > (g.bank[by] || 0)) g.bank = { ...g.bank, [by]: b };
     }
+    this.dirty = true;
+    return true;
+  }
+
+  /** Someone left the room: their tank is out of this round and every round after (their points stay). */
+  leave(id, now) {
+    const g = this.g;
+    if (typeof id !== 'string' || g.gone.includes(id) || !g.roster.some((e) => e.id === id && !e.bot)) return false;
+    g.gone = [...g.gone, id];
+    if (g.phase === 'play') this.dead(id, { by: '' }, now);
+    else if (g.phase === 'intro' && !g.out[id]) g.out = { ...g.out, [id]: [Object.keys(g.out).length + 1, '', 0, 0] };
     this.dirty = true;
     return true;
   }

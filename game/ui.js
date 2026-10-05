@@ -41,6 +41,13 @@ function tracked(ctx, str, x, y, size, o = {}) {
   return total;
 }
 
+/** The size at which `str` fits in maxW (the given size when it already does): names come from other people and can be long. */
+function fit(ctx, str, size, maxW, weight = 600) {
+  ctx.font = font(size, weight);
+  const w = ctx.measureText(str).width;
+  return w > maxW && w > 0 ? Math.max(8, (size * maxW) / w) : size;
+}
+
 function panel(ctx, x, y, w, h, accent, edge = 'top') {
   ctx.fillStyle = PANEL;
   ctx.fillRect(x, y, w, h);
@@ -195,7 +202,7 @@ export function drawResultsCard(ctx, Sc, o) {
     ctx.fillRect(x + 4 * u, ry - rowH / 2 + 2 * u, w - 8 * u, rowH - 4 * u);
     text(ctx, String(i + 1), x + 18 * u, ry, 24 * u, { weight: 700, fill: i === 0 ? '#ffc400' : '#ffffff', lw: 0 });
     drawHead(ctx, p.id, x + 46 * u, ry, 12 * u, { bot: p.bot, name: p.name, color: p.color });
-    text(ctx, p.name, x + 66 * u, ry, 20 * u, { align: 'left', lw: 0 });
+    text(ctx, p.name, x + 66 * u, ry, fit(ctx, p.name, 20 * u, w - 66 * u - 44 * u), { align: 'left', lw: 0 });
     text(ctx, String(p.score), x + w - 16 * u, ry, 24 * u, { align: 'right', weight: 700, lw: 0 });
   });
   ctx.globalAlpha = 1;
@@ -250,8 +257,11 @@ export function drawCallout(ctx, Sc, label, age, o = {}) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------ the top bar
-/** The height of the bar (a watcher gets a second strip for the scores: the platform's "Watching" note sits at the top centre). */
-export const hudHeight = (Sc, spectating = false) => Math.round((spectating ? 74 : 40) * Sc.u);
+/** Do the scores go in a strip of their own under the bar? A watcher's do (the platform's "Watching" note sits at the top centre), and so do many tanks on a narrow screen. */
+export const hudStrip = (Sc, n, spectating = false) => spectating || n * 40 * Sc.u + 480 * Sc.u > Sc.w;
+
+/** The height of the bar, with its strip if it has one. */
+export const hudHeight = (Sc, strip = false) => Math.round((strip ? 74 : 40) * Sc.u);
 
 /** One chip per tank, always in the same places: the colour and its symbol, the points, a line that fills up to the goal. */
 function drawChips(ctx, Sc, o, x0, cw, cy, ch) {
@@ -298,6 +308,7 @@ function drawChips(ctx, Sc, o, x0, cw, cy, ch) {
 
 /**
  * o: { round, goal, chips: [{ c, score, out, me, bot }], timeLeft (ms, or Infinity), out (I am destroyed), spectating, weapon, accent }
+ * (leave room for it with hudHeight(Sc, hudStrip(Sc, chips.length, spectating)))
  */
 export function drawHud(ctx, Sc, o) {
   const u = Sc.u;
@@ -334,26 +345,26 @@ export function drawHud(ctx, Sc, o) {
     rx -= w + 8 * u;
   } else if (o.weapon) {
     const wc = WCOL[o.weapon.k] || '#fff';
-    const nm = WEAPON[o.weapon.k].name;
+    const nm = Sc.w < 520 ? '' : WEAPON[o.weapon.k].name; // (a narrow screen has room for the picture only)
     ctx.font = font(18 * u, 700);
-    const w = ctx.measureText(nm).width + 44 * u + (o.weapon.k === 'G' ? 30 * u : 0);
+    const w = (nm ? ctx.measureText(nm).width + 16 * u : 0) + 34 * u + (o.weapon.k === 'G' ? 30 * u : 0);
     ctx.fillStyle = rgba(wc, 0.2);
     ctx.fillRect(rx - w, h * 0.16, w, h * 0.68);
     ctx.fillStyle = wc;
     ctx.fillRect(rx - w, h * 0.16, 3 * u, h * 0.68);
     drawWeaponIcon(ctx, o.weapon.k, rx - w + 20 * u, h * 0.5, 22 * u, wc);
-    text(ctx, nm, rx - w + 36 * u, h * 0.52, 18 * u, { align: 'left', weight: 700, lw: 0 });
+    if (nm) text(ctx, nm, rx - w + 36 * u, h * 0.52, 18 * u, { align: 'left', weight: 700, lw: 0 });
     if (o.weapon.k === 'G') text(ctx, String(Math.max(0, o.weapon.ammo)), rx - 10 * u, h * 0.52, 18 * u, { align: 'right', weight: 700, lw: 0, fill: wc });
     rx -= w + 8 * u;
   }
   const n = o.chips.length;
   const ch = h * 0.72;
-  if (o.spectating) {
+  if (hudStrip(Sc, n, o.spectating)) {
     // a watcher: the scores in a strip of their own, clear of the platform's note at the top centre
-    const cw = clamp((Sc.w - 24 * u) / Math.max(1, n) - 6 * u, 36 * u, 62 * u);
+    const cw = clamp((Sc.w - 140 - 24 * u) / Math.max(1, n) - 6 * u, 28 * u, 62 * u);
     const total = n * cw + (n - 1) * 6 * u;
     const sh = ch + 8 * u;
-    const x0 = Sc.w / 2 - total / 2;
+    const x0 = Math.max(140 + 10 * u, Sc.w / 2 - total / 2);
     ctx.fillStyle = 'rgba(11,13,19,0.86)';
     ctx.fillRect(x0 - 10 * u, h, total + 20 * u, sh);
     ctx.fillStyle = o.accent || '#ff7a1a';
@@ -418,7 +429,7 @@ export function drawEnd(ctx, Sc, o) {
     ctx.fillRect(x + 14 * u, y + headH / 2 - 15 * u, 30 * u, 30 * u);
     ctx.fillStyle = '#ffffff';
     glyph(ctx, o.winC, x + 29 * u, y + headH / 2, 10 * u);
-    text(ctx, o.winName, x + 56 * u, y + headH / 2 + 2 * u, 30 * u, { align: 'left', weight: 700, lw: 0 });
+    text(ctx, o.winName, x + 56 * u, y + headH / 2 + 2 * u, fit(ctx, o.winName, 30 * u, w - 56 * u - 70 * u, 700), { align: 'left', weight: 700, lw: 0 });
     const k = easeOutBack(clamp((o.age - 0.15) / 0.3, 0, 1));
     text(ctx, '+1', x + w - 20 * u, y + headH / 2 + 2 * u, 40 * u * k, { align: 'right', weight: 700, fill: '#ffc400', lw: 0 });
   }
@@ -437,7 +448,7 @@ export function drawEnd(ctx, Sc, o) {
     ctx.fillRect(x + 12 * u, ry - 9 * u, 18 * u, 18 * u);
     ctx.fillStyle = '#ffffff';
     glyph(ctx, r.c, x + 21 * u, ry, 6 * u);
-    text(ctx, r.name, x + 40 * u, ry, 19 * u, { align: 'left', weight: 600, lw: 0 });
+    text(ctx, r.name, x + 40 * u, ry, fit(ctx, r.name, 19 * u, barX - (x + 40 * u) - 8 * u), { align: 'left', weight: 600, lw: 0 });
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.fillRect(barX, ry - 5 * u, barW, 10 * u);
     // the winner's bar grows by the point just won
@@ -456,7 +467,7 @@ export function drawEnd(ctx, Sc, o) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------ the podium
-/** o: { top: [{ id, name, bot, color, score, me, c }], you: { place, label, score } | null, awards: { kills, bank }, age, win (bool: I won) } */
+/** o: { top: [{ id, name, bot, c, color, score, me }], you: { label, score } | null, awards: { kills, bank }, age, win (bool: I won) } */
 export function drawPodium(ctx, Sc, o) {
   const u = Sc.u;
   ctx.setTransform(Sc.pr, 0, 0, Sc.pr, 0, 0);
@@ -465,39 +476,54 @@ export function drawPodium(ctx, Sc, o) {
   ctx.fillRect(0, 0, Sc.w, Sc.h);
   const cx = Sc.w / 2;
   const compact = Sc.h < 340;
-  const title = o.win ? 'VICTORY' : 'FINAL';
-  const ty = Math.max(66 * u, Sc.h * 0.12);
+  const k = compact ? 0.8 : 1;
   ctx.globalAlpha = a;
-  tracked(ctx, title, cx, ty, (compact ? 40 : 54) * u, { weight: 700, lw: 0, spacing: 0.16, fill: o.win ? '#ffc400' : '#ffffff' });
+  const ty = Math.max(66 * u, Sc.h * 0.12);
+  tracked(ctx, o.win ? 'VICTORY' : 'FINAL', cx, ty, (compact ? 40 : 54) * u, { weight: 700, lw: 0, spacing: 0.16, fill: o.win ? '#ffc400' : '#ffffff', maxW: Sc.w * 0.8 });
+
+  // the row along the bottom: the best at killing, you (when you are not up there), the best bank shot
+  const items = [];
+  if (!compact && Sc.w >= 520 && o.awards && o.awards.kills) items.push({ label: 'MOST KILLS', name: o.awards.kills.name, v: String(o.awards.kills.v), col: '#12c2e9' });
+  if (o.you) items.push({ label: 'YOU', name: o.you.label, v: String(o.you.score), col: '#ffffff', you: true });
+  if (!compact && Sc.w >= 520 && o.awards && o.awards.bank) items.push({ label: 'BEST BANK', name: o.awards.bank.name, v: `x${o.awards.bank.v}`, col: '#ff7a1a' });
+  const rowH = 40 * u;
+  const rowY = items.length ? Sc.h - rowH - 12 * u : Sc.h - 14 * u;
+
   // three blocks: second, first, third
   const slots = [
     { i: 1, dx: -1, h: 78 },
     { i: 0, dx: 0, h: 112 },
     { i: 2, dx: 1, h: 56 },
   ];
-  const bw = (compact ? 118 : 150) * u;
-  const base = Math.min(Sc.h - 70 * u, ty + (compact ? 190 : 270) * u);
-  slots.forEach((s, k) => {
+  const bw = Math.min((compact ? 118 : 150) * u, (Sc.w - 20 * u - 20 * u) / 3);
+  const base = Math.min(rowY - 58 * u, ty + (compact ? 190 : 270) * u);
+  slots.forEach((s, n) => {
     const p = o.top[s.i];
     if (!p) return;
-    const rise = easeOutCubic(clamp((o.age - 0.25 - k * 0.12) / 0.45, 0, 1));
-    const bh = s.h * u * (compact ? 0.8 : 1) * rise;
+    const rise = easeOutCubic(clamp((o.age - 0.25 - n * 0.12) / 0.45, 0, 1));
+    const bh = s.h * u * k * rise;
     const x = cx + s.dx * (bw + 10 * u) - bw / 2;
     const col = COLORS[p.c % COLORS.length];
+    ctx.globalAlpha = a;
     ctx.fillStyle = rgba(col.main, 0.92);
     ctx.fillRect(x, base - bh, bw, bh);
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.fillRect(x, base - bh, bw, 4 * u);
-    text(ctx, String(s.i + 1), x + bw / 2, base - bh / 2 + 4 * u, 52 * u * (compact ? 0.8 : 1), { weight: 700, fill: 'rgba(255,255,255,0.9)', lw: 0, alpha: rise });
-    const hy = base - bh - 34 * u * (compact ? 0.8 : 1);
+    if (p.me) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(2, 2.4 * u);
+      ctx.strokeRect(x + 1, base - bh + 1, bw - 2, bh - 2);
+    }
+    text(ctx, String(s.i + 1), x + bw / 2, base - bh / 2 + 4 * u, 52 * u * k, { weight: 700, fill: 'rgba(255,255,255,0.9)', lw: 0, alpha: rise });
+    const hy = base - bh - 34 * u * k;
     ctx.globalAlpha = a * rise;
-    drawHead(ctx, p.id, x + bw / 2, hy, 26 * u * (compact ? 0.8 : 1), { bot: p.bot, name: p.name, color: col.main, lw: 3 * u });
+    drawHead(ctx, p.id, x + bw / 2, hy, 26 * u * k, { bot: p.bot, name: p.name, color: col.main, lw: 3 * u });
     if (s.i === 0) {
       // a crown
       ctx.fillStyle = '#ffc400';
       ctx.strokeStyle = INK;
       ctx.lineWidth = 2 * u;
-      const cy = hy - 34 * u;
+      const cy = hy - 34 * u * k;
       ctx.beginPath();
       ctx.moveTo(x + bw / 2 - 16 * u, cy + 10 * u);
       ctx.lineTo(x + bw / 2 - 18 * u, cy - 8 * u);
@@ -510,34 +536,19 @@ export function drawPodium(ctx, Sc, o) {
       ctx.fill();
       ctx.stroke();
     }
-    text(ctx, p.name, x + bw / 2, base + 16 * u, 22 * u, { weight: 600 });
+    text(ctx, p.name, x + bw / 2, base + 16 * u, fit(ctx, p.name, 22 * u, bw + 8 * u), { weight: 600 });
     text(ctx, String(p.score), x + bw / 2, base + 38 * u, 28 * u, { weight: 700, fill: '#ffc400' });
-    ctx.globalAlpha = a;
   });
-  // "You: 5th" when you are not on it
-  if (o.you) {
-    const label = `YOU: ${o.you.label}`;
-    ctx.font = font(24 * u, 700);
-    const w = ctx.measureText(label).width + 90 * u;
-    const y = Math.min(Sc.h - 28 * u, base + 70 * u);
-    panel(ctx, cx - w / 2, y - 18 * u, w, 36 * u, '#ffffff', 'left');
-    tracked(ctx, label, cx - 20 * u, y + u, 24 * u, { weight: 700, lw: 0, spacing: 0.06 });
-    text(ctx, String(o.you.score), cx + w / 2 - 22 * u, y + u, 26 * u, { weight: 700, fill: '#ffc400', lw: 0 });
-  }
-  // awards
-  const aw = [];
-  if (o.awards && o.awards.kills) aw.push({ label: 'MOST KILLS', p: o.awards.kills, v: String(o.awards.kills.v) });
-  if (o.awards && o.awards.bank) aw.push({ label: 'BEST BANK', p: o.awards.bank, v: `x${o.awards.bank.v}` });
-  if (aw.length && !compact) {
-    const cw = 190 * u;
-    const total = aw.length * cw + (aw.length - 1) * 12 * u;
-    aw.forEach((q, i) => {
-      const x = cx - total / 2 + i * (cw + 12 * u);
-      const y = Sc.h - 56 * u;
-      panel(ctx, x, y, cw, 40 * u, '#12c2e9', 'left');
-      text(ctx, q.label, x + 12 * u, y + 13 * u, 14 * u, { align: 'left', fill: DIM, weight: 600, lw: 0 });
-      text(ctx, q.p.name, x + 12 * u, y + 29 * u, 19 * u, { align: 'left', weight: 600, lw: 0 });
-      text(ctx, q.v, x + cw - 12 * u, y + 22 * u, 24 * u, { align: 'right', weight: 700, lw: 0, fill: '#12c2e9' });
+  ctx.globalAlpha = a;
+  if (items.length) {
+    const cw = (items.length === 1 ? 190 : 176) * u;
+    const total = items.length * cw + (items.length - 1) * 10 * u;
+    items.forEach((q, i) => {
+      const x = cx - total / 2 + i * (cw + 10 * u);
+      panel(ctx, x, rowY, cw, rowH, q.col, 'left');
+      text(ctx, q.label, x + 12 * u, rowY + 12 * u, 14 * u, { align: 'left', fill: DIM, weight: 600, lw: 0 });
+      text(ctx, q.name, x + 12 * u, rowY + 29 * u, fit(ctx, q.name, 19 * u, cw - 24 * u - 52 * u), { align: 'left', weight: 600, lw: 0 });
+      text(ctx, q.v, x + cw - 12 * u, rowY + 21 * u, 26 * u, { align: 'right', weight: 700, lw: 0, fill: q.you ? '#ffc400' : q.col });
     });
   }
   ctx.globalAlpha = 1;

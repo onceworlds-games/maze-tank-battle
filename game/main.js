@@ -1,7 +1,7 @@
 // Maze Tank Battle: boot, the frame loop and the screens.
 //
 // Every page runs a Round (round.js) and simulates every shot from the fire messages, so they all agree on each ricochet. Your
-// own tank is simulated on your page and published as presence ({ x, y, a, w, d, r }); other people's tanks are drawn from
+// own tank is simulated on your page and published as presence ({ x, y, a, w (power-up letter), d (destroyed), r (round id), n (counts up) }); other people's tanks are drawn from
 // presence, the bots' from the host's snapshots (or, on the host, from the host's own simulation). A tank's death is decided by
 // the page the tank is on and told to everyone; the host keeps the match book (match.js) in the room's state `g`.
 // Screens come from room.match.phase plus `g`: the title (the game alive behind one button), the lobby (the world, live, with
@@ -417,8 +417,7 @@ function run(ow, room, tickable, offline) {
     k.x = nx;
     k.y = ny;
     k.a = p.a;
-    const w = Math.round(fin(p.w));
-    k.weapon = w >= 1 && w <= WEAPON_KEYS.length ? { k: WEAPON_KEYS[w - 1], ammo: 1 } : null;
+    k.weapon = typeof p.w === 'string' && p.w.length === 1 && WEAPON_KEYS.includes(p.w) ? { k: p.w, ammo: 1 } : null;
     // every update has a number: a page that stops counting (a tab in the background) is not playing any more
     const n = fin(p.n, -1);
     if (n !== k.pn) {
@@ -611,7 +610,7 @@ function run(ow, room, tickable, offline) {
       Sc.ox = ox;
       Sc.oy = oy;
     } else if (S.scene === 'lobby') fitLayout(ui.lobbyTop(Sc), clamp(Sc.h * 0.17, 56, 96));
-    else fitLayout(ui.hudHeight(Sc, !S.iAmIn) + 6, 6);
+    else fitLayout(ui.hudHeight(Sc, ui.hudStrip(Sc, S.round ? S.round.tanks.length : 4, !S.iAmIn)) + 6, 6);
   }
 
   // ---------------------------------------------------------------- the record and the phases of a round
@@ -807,7 +806,7 @@ function run(ow, room, tickable, offline) {
       if (!g || !S.iAmIn || !k) return;
       rid = S.rid;
     } else if (!k) return;
-    const w = k.weapon ? WEAPON_KEYS.indexOf(k.weapon.k) + 1 : 0;
+    const w = k.weapon ? k.weapon.k : ''; // (a letter: numbers in presence are smoothed between updates, letters aren't)
     const msg = { x: r2(k.x), y: r2(k.y), a: r2(k.a), w, d: k.alive ? 0 : 1, r: rid, n: S.pubN++ };
     const key = `${msg.x},${msg.y},${msg.a},${msg.w},${msg.d},${msg.r}`;
     const now = Sc.time;

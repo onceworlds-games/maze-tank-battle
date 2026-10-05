@@ -120,15 +120,14 @@ export function createNet(room, env) {
     if (!hosting()) return;
     const now = room.matchNow();
     const m = match;
+    // someone who left is out of this round and every one after it (their points stay)
+    for (const e of m.g.roster) if (!e.bot && !room.players.has(e.id)) m.leave(e.id, now);
     if (m.g.phase === 'play') {
       const perf = typeof performance !== 'undefined' ? performance.now() : Date.now();
       for (const e of m.g.roster) {
         if (e.bot || m.g.out[e.id]) continue;
         const p = room.players.get(e.id);
-        if (!p) {
-          m.dead(e.id, { by: '' }, now); // they left: their tank is gone, their points stay
-          continue;
-        }
+        if (!p) continue;
         // their page says it is destroyed but its message never came: after a second the host books it
         const pr = p.presence;
         const key = `${m.g.rid}|${e.id}`;

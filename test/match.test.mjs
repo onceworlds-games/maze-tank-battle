@@ -137,6 +137,27 @@ test('a round nobody wins in 75 seconds is a draw; a leaver is a destroyed tank 
   assert.equal(m2.g.scores.p2, 0);
 });
 
+test('someone who leaves is out of this round and of every round after it, and keeps their points', () => {
+  const m = startPlay();
+  const t0 = m.g.t0;
+  m.g.scores.p2 = 3;
+  assert.ok(m.leave('p2', t0 + 1000));
+  assert.equal(m.leave('p2', t0 + 1100), false, 'once');
+  assert.equal(m.leave('bot1', t0 + 1100), false, 'a bot does not leave');
+  assert.ok(m.g.out.p2, 'out of the round that is running');
+  m.dead('bot1', { by: 'p1' }, t0 + 2000);
+  m.dead('bot2', { by: 'p1' }, t0 + 3000);
+  m.tick(t0 + 3000 + SETTLE_MS);
+  assert.equal(m.g.win, 'p1');
+  m.tick(m.g.until);
+  assert.equal(m.g.phase, 'intro');
+  assert.ok(m.g.out.p2 && !m.g.out.p1, 'the next round starts without them, with everyone else in');
+  assert.equal(m.g.scores.p2, 3);
+  // and one who goes during an intro is out of it at once
+  m.leave('p1', m.g.until - 100);
+  assert.ok(m.g.out.p1);
+});
+
 test('the match always ends: after the last allowed round the best score wins', () => {
   const m = startPlay(15);
   let now = m.g.t0;

@@ -116,7 +116,7 @@ function paintWalls(c, maze, accent) {
   c.globalAlpha = 1;
 }
 
-const LAYER_MAX_PX = 6e6; // a board bigger than this is drawn a little softer rather than eating the phone's memory
+const LAYER_MAX_PX = 14e6; // a board bigger than this is drawn a little softer rather than eating the phone's memory
 
 function makeLayer(Sc, maze, paint) {
   const s = Sc.scale * Sc.pr;
